@@ -3,20 +3,15 @@
 /*
 ==========================================================
  杭州探索録
- STORY MODE Ver.2
+ STORY MODE Ver.2.1
 
  第一章「武林の夜」
 
- ・探索 / ストーリーモード選択
- ・ストーリー専用NPC
- ・頭上「！」マーク
- ・Eキーでストーリーイベント
- ・複数人物が切り替わる会話
- ・中国語選択肢
- ・小雨が屋台へ移動
- ・陈叔との注文
- ・白い服の女性「？？？」登場
- ・第一章クリア
+ Ver.2.1
+ ・小雨の移動をウェイポイント方式へ変更
+ ・移動途中で止まる問題を修正
+ ・最終地点到着を確実に判定
+ ・到着後、陈叔イベントへ確実に移行
 
  portraits.js Ver.1 と併用
 ==========================================================
@@ -28,7 +23,7 @@
 // ==========================================================
 
 const STORY_SAVE_KEY =
-  "hangzhouStorySaveV2";
+  "hangzhouStorySaveV21";
 
 
 const STORY = {
@@ -59,16 +54,25 @@ const STORY = {
 function saveStory(){
 
   localStorage.setItem(
+
     STORY_SAVE_KEY,
 
     JSON.stringify({
 
-      chapter:STORY.chapter,
-      step:STORY.step,
-      flags:STORY.flags,
-      chapterComplete:STORY.chapterComplete
+      chapter:
+        STORY.chapter,
+
+      step:
+        STORY.step,
+
+      flags:
+        STORY.flags,
+
+      chapterComplete:
+        STORY.chapterComplete
 
     })
+
   );
 
 }
@@ -80,23 +84,30 @@ function loadStory(){
 
     const data =
       JSON.parse(
+
         localStorage.getItem(
           STORY_SAVE_KEY
         )
+
       );
+
 
     if(!data){
       return;
     }
 
+
     STORY.chapter =
       data.chapter || 1;
+
 
     STORY.step =
       data.step || 0;
 
+
     STORY.flags =
       data.flags || {};
+
 
     STORY.chapterComplete =
       !!data.chapterComplete;
@@ -118,18 +129,12 @@ function loadStory(){
 // STORY NPCS
 // ==========================================================
 
-/*
-  x / y はピクセル座標。
-
-  現在のfoodマップは
-  spawn (26,19)。
-
-  小雨は中央より少し北西側。
-  陈叔は焼烤屋台付近。
-  白い女性は終盤のみ出現。
-*/
-
 const STORY_NPCS = {
+
+
+  // --------------------------------------------------------
+  // 林小雨
+  // --------------------------------------------------------
 
   xiaoyu:{
 
@@ -143,7 +148,9 @@ const STORY_NPCS = {
     y:16*TILE,
 
     color:"#708ca0",
+
     skin:"#f2c6a5",
+
     hair:"#292329",
 
     direction:"down",
@@ -154,10 +161,16 @@ const STORY_NPCS = {
 
     marker:true,
 
-    storyInteract:true
+    storyInteract:true,
+
+    storyMoving:false
 
   },
 
+
+  // --------------------------------------------------------
+  // 陈叔
+  // --------------------------------------------------------
 
   uncleChen:{
 
@@ -167,11 +180,17 @@ const STORY_NPCS = {
 
     name:"陈叔",
 
+    /*
+      烧烤屋台付近。
+    */
+
     x:17*TILE,
     y:12*TILE,
 
     color:"#765746",
+
     skin:"#d9a67d",
+
     hair:"#292727",
 
     direction:"right",
@@ -182,10 +201,16 @@ const STORY_NPCS = {
 
     marker:true,
 
-    storyInteract:true
+    storyInteract:true,
+
+    storyMoving:false
 
   },
 
+
+  // --------------------------------------------------------
+  // 白い服の女性
+  // --------------------------------------------------------
 
   whiteLady:{
 
@@ -199,7 +224,9 @@ const STORY_NPCS = {
     y:19*TILE,
 
     color:"#e8e5df",
+
     skin:"#efd0b5",
+
     hair:"#17171b",
 
     direction:"left",
@@ -210,7 +237,9 @@ const STORY_NPCS = {
 
     marker:false,
 
-    storyInteract:false
+    storyInteract:false,
+
+    storyMoving:false
 
   }
 
@@ -221,13 +250,9 @@ const STORY_NPCS = {
 // WHITE LADY PORTRAIT
 // ==========================================================
 
-/*
-  portraits.js のPORTRAITSへ
-  第一章用「？？？」を追加。
-*/
-
 if(
-  typeof PORTRAITS !== "undefined"
+  typeof PORTRAITS !==
+  "undefined"
 ){
 
   PORTRAITS.whiteLady = {
@@ -303,9 +328,11 @@ function storyAddStyle(){
       calc(100vw - 40px)
     );
 
-    padding:44px 48px;
+    padding:
+      44px 48px;
 
-    box-sizing:border-box;
+    box-sizing:
+      border-box;
 
     background:
       rgba(18,20,27,.97);
@@ -717,6 +744,7 @@ function storyAddStyle(){
       grid-template-columns:1fr;
     }
 
+
     #storyObjective{
       width:220px;
     }
@@ -945,7 +973,10 @@ function setStoryObjective(text){
 
 
   if(el){
-    el.textContent = text;
+
+    el.textContent =
+      text;
+
   }
 
 }
@@ -987,8 +1018,13 @@ function startExploreMode(){
   STORY.mode =
     "explore";
 
+
   STORY.started =
     false;
+
+
+  STORY.movingNPC =
+    null;
 
 
   hideAllStoryNPCs();
@@ -1019,19 +1055,29 @@ function startStoryMode(){
   STORY.mode =
     "story";
 
+
   STORY.started =
     true;
+
 
   STORY.chapter =
     1;
 
+
   STORY.step =
     0;
 
-  STORY.flags = {};
+
+  STORY.flags =
+    {};
+
 
   STORY.chapterComplete =
     false;
+
+
+  STORY.movingNPC =
+    null;
 
 
   document
@@ -1052,16 +1098,13 @@ function startStoryMode(){
     );
 
 
-  /*
-    第一章は必ず小吃街から開始。
-  */
-
   currentMapId =
     "food";
 
 
   player.x =
     MAPS.food.spawn.x*TILE;
+
 
   player.y =
     MAPS.food.spawn.y*TILE;
@@ -1075,6 +1118,7 @@ function startStoryMode(){
     player.x -
     canvas.width/2;
 
+
   camera.y =
     player.y -
     canvas.height/2;
@@ -1083,7 +1127,11 @@ function startStoryMode(){
   clampCamera();
 
 
-  hideAllStoryNPCs();
+  /*
+    NPCを初期位置へ戻す。
+  */
+
+  resetStoryNPCs();
 
 
   saveStory();
@@ -1101,6 +1149,65 @@ function startStoryMode(){
 
 
 // ==========================================================
+// RESET STORY NPC
+// ==========================================================
+
+function resetStoryNPCs(){
+
+  STORY_NPCS.xiaoyu.x =
+    24*TILE;
+
+
+  STORY_NPCS.xiaoyu.y =
+    16*TILE;
+
+
+  STORY_NPCS.xiaoyu.direction =
+    "down";
+
+
+  STORY_NPCS.xiaoyu.marker =
+    true;
+
+
+  STORY_NPCS.xiaoyu.storyInteract =
+    true;
+
+
+  STORY_NPCS.xiaoyu.storyMoving =
+    false;
+
+
+  STORY_NPCS.uncleChen.x =
+    17*TILE;
+
+
+  STORY_NPCS.uncleChen.y =
+    12*TILE;
+
+
+  STORY_NPCS.uncleChen.marker =
+    true;
+
+
+  STORY_NPCS.uncleChen.storyInteract =
+    true;
+
+
+  STORY_NPCS.whiteLady.x =
+    37*TILE;
+
+
+  STORY_NPCS.whiteLady.y =
+    19*TILE;
+
+
+  hideAllStoryNPCs();
+
+}
+
+
+// ==========================================================
 // NPC VISIBILITY
 // ==========================================================
 
@@ -1113,7 +1220,8 @@ function hideAllStoryNPCs(){
     )
   ){
 
-    npc.visible = false;
+    npc.visible =
+      false;
 
   }
 
@@ -1127,7 +1235,10 @@ function showStoryNPC(id){
 
 
   if(npc){
-    npc.visible = true;
+
+    npc.visible =
+      true;
+
   }
 
 }
@@ -1140,7 +1251,10 @@ function hideStoryNPC(id){
 
 
   if(npc){
-    npc.visible = false;
+
+    npc.visible =
+      false;
+
   }
 
 }
@@ -1157,20 +1271,18 @@ const STORY_originalDrawEntities =
 drawEntities =
 function(time){
 
-  /*
-    既存NPCとプレイヤーを
-    そのまま描画。
-  */
-
   STORY_originalDrawEntities(
     time
   );
 
 
   if(
-    STORY.mode !== "story"
+    STORY.mode !==
+    "story"
   ){
+
     return;
+
   }
 
 
@@ -1185,7 +1297,9 @@ function(time){
       !npc.visible ||
       npc.map !== currentMapId
     ){
+
       continue;
+
     }
 
 
@@ -1216,10 +1330,6 @@ function(time){
 
     );
 
-
-    /*
-      クエスト「！」
-    */
 
     if(
       npc.marker &&
@@ -1282,9 +1392,12 @@ function(time){
 function getNearbyStoryNPC(){
 
   if(
-    STORY.mode !== "story"
+    STORY.mode !==
+    "story"
   ){
+
     return null;
+
   }
 
 
@@ -1318,7 +1431,9 @@ function getNearbyStoryNPC(){
       !npc.storyInteract ||
       npc.map !== currentMapId
     ){
+
       continue;
+
     }
 
 
@@ -1362,7 +1477,8 @@ interact =
 function(){
 
   if(
-    STORY.mode === "story"
+    STORY.mode ===
+    "story"
   ){
 
     const storyNPC =
@@ -1374,6 +1490,7 @@ function(){
       interactStoryNPC(
         storyNPC
       );
+
 
       return;
 
@@ -1399,8 +1516,11 @@ updateInteractionHint =
 function(){
 
   if(
-    STORY.mode === "story" &&
+    STORY.mode ===
+      "story" &&
+
     !dialogue.active &&
+
     !STORY.choiceOpen
   ){
 
@@ -1414,9 +1534,11 @@ function(){
         `${npc.name}に話す`;
 
 
-      interactionHint.classList.remove(
-        "hidden"
-      );
+      interactionHint
+        .classList
+        .remove(
+          "hidden"
+        );
 
 
       return;
@@ -1438,39 +1560,16 @@ function(){
 function interactStoryNPC(npc){
 
   if(
-    npc.id === "xiaoyu"
+    npc.id ===
+    "xiaoyu"
   ){
 
-    if(STORY.step === 1){
+    if(
+      STORY.step ===
+      1
+    ){
 
       beginXiaoyuMeeting();
-
-      return;
-
-    }
-
-
-    if(STORY.step === 3){
-
-      storyDialogueSequence(
-
-        [
-          {
-            speaker:"林小雨",
-            portrait:"xiaoyu",
-            expression:"smile",
-            text:"走吧，陈叔的摊子就在前面。"
-          },
-
-          {
-            speaker:"林小雨",
-            portrait:"xiaoyu",
-            expression:"normal",
-            text:"跟着我，别走丢了。"
-          }
-        ]
-
-      );
 
       return;
 
@@ -1480,8 +1579,11 @@ function interactStoryNPC(npc){
 
 
   if(
-    npc.id === "uncleChen" &&
-    STORY.step === 4
+    npc.id ===
+      "uncleChen" &&
+
+    STORY.step ===
+      4
   ){
 
     beginChenScene();
@@ -1497,21 +1599,6 @@ function interactStoryNPC(npc){
 // DIALOGUE SEQUENCE
 // ==========================================================
 
-/*
-  これがVer.2の重要部分。
-
-  一つの会話イベントの中で
-
-  小雨
-  ↓
-  陈叔
-  ↓
-  小雨
-
-  のように話者・顔・表情を
-  途中で変更できる。
-*/
-
 function storyDialogueSequence(
   sequence,
   onEnd=null
@@ -1526,6 +1613,7 @@ function storyDialogueSequence(
       onEnd();
     }
 
+
     return;
 
   }
@@ -1533,6 +1621,7 @@ function storyDialogueSequence(
 
   STORY.sequence =
     sequence;
+
 
   STORY.sequenceIndex =
     0;
@@ -1544,7 +1633,8 @@ function storyDialogueSequence(
 
   const npc = {
 
-    name:first.speaker,
+    name:
+      first.speaker,
 
     portrait:
       first.portrait ||
@@ -1560,9 +1650,11 @@ function storyDialogueSequence(
 
     rewards:[],
 
-    storySequence:true,
+    storySequence:
+      true,
 
-    storyOnEnd:onEnd
+    storyOnEnd:
+      onEnd
 
   };
 
@@ -1570,8 +1662,10 @@ function storyDialogueSequence(
   dialogue.active =
     true;
 
+
   dialogue.npc =
     npc;
+
 
   dialogue.index =
     0;
@@ -1582,9 +1676,11 @@ function storyDialogueSequence(
   );
 
 
-  dialogueBox.classList.remove(
-    "hidden"
-  );
+  dialogueBox
+    .classList
+    .remove(
+      "hidden"
+    );
 
 }
 
@@ -1662,7 +1758,9 @@ function(){
 
 
     if(callback){
+
       callback();
+
     }
 
 
@@ -1736,13 +1834,19 @@ function storyChoice(choices){
           false;
 
 
-        holder.classList.add(
-          "hidden"
-        );
+        holder
+          .classList
+          .add(
+            "hidden"
+          );
 
 
-        if(choice.action){
+        if(
+          choice.action
+        ){
+
           choice.action();
+
         }
 
       }
@@ -1756,9 +1860,11 @@ function storyChoice(choices){
   }
 
 
-  holder.classList.remove(
-    "hidden"
-  );
+  holder
+    .classList
+    .remove(
+      "hidden"
+    );
 
 }
 
@@ -1834,17 +1940,15 @@ function storyOpening(){
 
 
 // ==========================================================
-// XIAOYU
+// XIAOYU FIRST MEETING
 // ==========================================================
 
 function beginXiaoyuMeeting(){
 
-  const xiaoyu =
-    STORY_NPCS.xiaoyu;
-
-
-  xiaoyu.marker =
-    false;
+  STORY_NPCS
+    .xiaoyu
+    .marker =
+      false;
 
 
   storyDialogueSequence(
@@ -1878,11 +1982,19 @@ function beginXiaoyuMeeting(){
 
       storyChoice([
 
+
+        // ----------------------------------------------
+        // 留学
+        // ----------------------------------------------
+
         {
 
-          jp:"留学に来ました",
+          jp:
+            "留学に来ました",
 
-          cn:"我来杭州留学。",
+          cn:
+            "我来杭州留学。",
+
 
           action(){
 
@@ -1926,11 +2038,18 @@ function beginXiaoyuMeeting(){
         },
 
 
+        // ----------------------------------------------
+        // 旅行
+        // ----------------------------------------------
+
         {
 
-          jp:"旅行で来ました",
+          jp:
+            "旅行で来ました",
 
-          cn:"我是来杭州旅游的。",
+          cn:
+            "我是来杭州旅游的。",
+
 
           action(){
 
@@ -1974,11 +2093,18 @@ function beginXiaoyuMeeting(){
         },
 
 
+        // ----------------------------------------------
+        // 散歩
+        // ----------------------------------------------
+
         {
 
-          jp:"ちょっと散歩しています",
+          jp:
+            "ちょっと散歩しています",
 
-          cn:"我只是随便逛逛。",
+          cn:
+            "我只是随便逛逛。",
+
 
           action(){
 
@@ -2029,6 +2155,10 @@ function beginXiaoyuMeeting(){
 
 }
 
+
+// ==========================================================
+// AFTER INTRODUCTION
+// ==========================================================
 
 function finishXiaoyuIntroduction(){
 
@@ -2096,65 +2226,212 @@ function startXiaoyuWalk(){
 
 
   /*
-    小雨を焼烤屋台へ移動。
+  ========================================================
+   Ver.2.1
 
-    目的地：
-    左側の焼烤屋台付近。
+   1地点への直進を廃止。
+
+   waypointを
+
+   24,16
+      ↓
+   23,17
+      ↓
+   21,17
+      ↓
+   20,16
+      ↓
+   19,15
+
+   と順番に通過する。
+
+   これにより夜市を歩いて
+   屋台へ向かうように見せる。
+  ========================================================
   */
+
 
   STORY.movingNPC = {
 
     npc:
       STORY_NPCS.xiaoyu,
 
-    targetX:
-      19*TILE,
 
-    targetY:
-      15*TILE,
+    waypoints:[
+
+      {
+        x:24*TILE,
+        y:17*TILE
+      },
+
+      {
+        x:22*TILE,
+        y:17*TILE
+      },
+
+      {
+        x:20*TILE,
+        y:17*TILE
+      },
+
+      {
+        x:20*TILE,
+        y:15*TILE
+      },
+
+      {
+        x:19*TILE,
+        y:15*TILE
+      }
+
+    ],
+
+
+    waypointIndex:
+      0,
+
 
     speed:
-      52,
-
-    onArrive(){
-
-      STORY.step =
-        4;
+      46,
 
 
-      STORY_NPCS.xiaoyu.marker =
-        false;
+    /*
+      6px以内なら
+      waypoint到着とみなす。
+    */
+
+    tolerance:
+      6,
 
 
-      showStoryNPC(
-        "uncleChen"
-      );
-
-
-      STORY_NPCS.uncleChen.marker =
-        true;
-
-
-      setStoryObjective(
-        "焼烤屋台の陈叔に話しかけよう"
-      );
-
-
-      saveStory();
-
-    }
+    onArrive:
+      onXiaoyuArrivedAtStall
 
   };
 
 
-  STORY_NPCS.xiaoyu.storyMoving =
-    true;
+  STORY_NPCS
+    .xiaoyu
+    .storyMoving =
+      true;
+
+
+  /*
+    移動中は話しかけられない。
+  */
+
+  STORY_NPCS
+    .xiaoyu
+    .storyInteract =
+      false;
 
 }
 
 
 // ==========================================================
-// UPDATE STORY MOVEMENT
+// XIAOYU ARRIVAL
+// ==========================================================
+
+function onXiaoyuArrivedAtStall(){
+
+  const xiaoyu =
+    STORY_NPCS.xiaoyu;
+
+
+  /*
+    最終位置を確実に固定。
+  */
+
+  xiaoyu.x =
+    19*TILE;
+
+
+  xiaoyu.y =
+    15*TILE;
+
+
+  xiaoyu.direction =
+    "left";
+
+
+  xiaoyu.storyMoving =
+    false;
+
+
+  xiaoyu.storyInteract =
+    false;
+
+
+  xiaoyu.marker =
+    false;
+
+
+  STORY.step =
+    4;
+
+
+  /*
+    陈叔登場。
+  */
+
+  showStoryNPC(
+    "uncleChen"
+  );
+
+
+  STORY_NPCS
+    .uncleChen
+    .marker =
+      true;
+
+
+  STORY_NPCS
+    .uncleChen
+    .storyInteract =
+      true;
+
+
+  setStoryObjective(
+    "焼烤屋台の陈叔に話しかけよう"
+  );
+
+
+  saveStory();
+
+
+  /*
+    到着時に小雨から一言。
+    これでプレイヤーにも
+    到着したことが明確に分かる。
+  */
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"到了，就是这里。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"陈叔！"
+      }
+
+    ]
+
+  );
+
+}
+
+
+// ==========================================================
+// STORY MOVEMENT UPDATE
 // ==========================================================
 
 const STORY_originalUpdateNPCs =
@@ -2179,10 +2456,14 @@ function(dt){
 function updateStoryMovement(dt){
 
   if(
-    STORY.mode !== "story" ||
+    STORY.mode !==
+      "story" ||
+
     !STORY.movingNPC
   ){
+
     return;
+
   }
 
 
@@ -2190,7 +2471,9 @@ function updateStoryMovement(dt){
     dialogue.active ||
     STORY.choiceOpen
   ){
+
     return;
+
   }
 
 
@@ -2202,13 +2485,57 @@ function updateStoryMovement(dt){
     movement.npc;
 
 
+  const waypoints =
+    movement.waypoints;
+
+
+  /*
+    waypointが無い場合は
+    安全に終了。
+  */
+
+  if(
+    !waypoints ||
+    waypoints.length === 0
+  ){
+
+    finishStoryMovement();
+
+    return;
+
+  }
+
+
+  /*
+    現在の目的地点。
+  */
+
+  const waypoint =
+    waypoints[
+      movement.waypointIndex
+    ];
+
+
+  /*
+    全waypointを通過済みなら終了。
+  */
+
+  if(!waypoint){
+
+    finishStoryMovement();
+
+    return;
+
+  }
+
+
   const dx =
-    movement.targetX -
+    waypoint.x -
     npc.x;
 
 
   const dy =
-    movement.targetY -
+    waypoint.y -
     npc.y;
 
 
@@ -2219,29 +2546,45 @@ function updateStoryMovement(dt){
     );
 
 
-  if(distance < 4){
+  /*
+  ========================================================
+   到着判定
+
+   前回は4px未満だったため、
+   微妙な座標誤差で止まる可能性があった。
+
+   今回は6px以内で
+   強制的にwaypointへスナップする。
+  ========================================================
+  */
+
+  if(
+    distance <=
+    movement.tolerance
+  ){
 
     npc.x =
-      movement.targetX;
+      waypoint.x;
+
 
     npc.y =
-      movement.targetY;
+      waypoint.y;
 
 
-    npc.storyMoving =
-      false;
+    movement.waypointIndex++;
 
 
-    const callback =
-      movement.onArrive;
+    /*
+      最後のwaypointだった場合。
+    */
 
+    if(
+      movement.waypointIndex >=
+      waypoints.length
+    ){
 
-    STORY.movingNPC =
-      null;
+      finishStoryMovement();
 
-
-    if(callback){
-      callback();
     }
 
 
@@ -2250,59 +2593,122 @@ function updateStoryMovement(dt){
   }
 
 
-  const speed =
-    movement.speed;
-
-
-  let vx =
-    0;
-
-  let vy =
-    0;
-
-
   /*
-    横方向を優先して移動。
-    単純な直線ではなく
-    RPGらしい直角移動にする。
+  ========================================================
+   移動
+
+   waypointまでは
+   X/Yのうち距離が大きい方を優先。
+
+   斜め移動させず、
+   RPGらしい上下左右移動にする。
+  ========================================================
   */
 
+  const step =
+    movement.speed *
+    dt;
+
+
   if(
-    Math.abs(dx) > 5
+    Math.abs(dx) >=
+    Math.abs(dy)
   ){
 
-    vx =
+    /*
+      横移動。
+    */
+
+    const moveX =
       Math.sign(dx) *
-      speed;
+      Math.min(
+        Math.abs(dx),
+        step
+      );
+
+
+    npc.x +=
+      moveX;
 
 
     npc.direction =
-      dx>0
+      dx > 0
       ? "right"
       : "left";
 
   }
   else{
 
-    vy =
+    /*
+      縦移動。
+    */
+
+    const moveY =
       Math.sign(dy) *
-      speed;
+      Math.min(
+        Math.abs(dy),
+        step
+      );
+
+
+    npc.y +=
+      moveY;
 
 
     npc.direction =
-      dy>0
+      dy > 0
       ? "down"
       : "up";
 
   }
 
-
-  npc.x +=
-    vx*dt;
+}
 
 
-  npc.y +=
-    vy*dt;
+// ==========================================================
+// FINISH STORY MOVEMENT
+// ==========================================================
+
+function finishStoryMovement(){
+
+  if(
+    !STORY.movingNPC
+  ){
+
+    return;
+
+  }
+
+
+  const movement =
+    STORY.movingNPC;
+
+
+  const callback =
+    movement.onArrive;
+
+
+  movement.npc.storyMoving =
+    false;
+
+
+  /*
+    先にnullへする。
+
+    callbackの中で
+    新しいイベントを開始しても
+    旧movementが残らない。
+  */
+
+  STORY.movingNPC =
+    null;
+
+
+  if(callback){
+
+    callback();
+
+  }
 
 }
 
@@ -2313,8 +2719,16 @@ function updateStoryMovement(dt){
 
 function beginChenScene(){
 
-  STORY_NPCS.uncleChen.marker =
-    false;
+  STORY_NPCS
+    .uncleChen
+    .marker =
+      false;
+
+
+  STORY_NPCS
+    .uncleChen
+    .storyInteract =
+      false;
 
 
   storyDialogueSequence(
@@ -2375,9 +2789,12 @@ function showFoodChoice(){
 
     {
 
-      jp:"焼き串をください",
+      jp:
+        "焼き串をください",
 
-      cn:"我要一份烤串。",
+      cn:
+        "我要一份烤串。",
+
 
       action(){
 
@@ -2416,9 +2833,12 @@ function showFoodChoice(){
 
     {
 
-      jp:"おすすめは何ですか？",
+      jp:
+        "おすすめは何ですか？",
 
-      cn:"有什么推荐的吗？",
+      cn:
+        "有什么推荐的吗？",
+
 
       action(){
 
@@ -2464,9 +2884,12 @@ function showFoodChoice(){
 
     {
 
-      jp:"辛くしないでください",
+      jp:
+        "辛くしないでください",
 
-      cn:"不要辣，谢谢。",
+      cn:
+        "不要辣，谢谢。",
+
 
       action(){
 
@@ -2508,7 +2931,7 @@ function showFoodChoice(){
 
 
 // ==========================================================
-// AFTER DINNER
+// AFTER FOOD
 // ==========================================================
 
 function finishFoodScene(){
@@ -2581,7 +3004,7 @@ function finishFoodScene(){
 
 
 // ==========================================================
-// WHITE LADY
+// WHITE LADY SCENE
 // ==========================================================
 
 function beginWhiteLadyScene(){
@@ -2600,11 +3023,8 @@ function beginWhiteLadyScene(){
   );
 
 
-  /*
-    まず少し間を作る。
-  */
-
   setTimeout(
+
     ()=>{
 
       storyDialogueSequence(
@@ -2639,18 +3059,19 @@ function beginWhiteLadyScene(){
       );
 
     },
+
     700
+
   );
 
 }
 
 
-function whiteLadyMoment(){
+// ==========================================================
+// WHITE LADY MOMENT
+// ==========================================================
 
-  /*
-    初めて「？？？」の顔を見せる。
-    台詞はまだ無い。
-  */
+function whiteLadyMoment(){
 
   storyDialogueSequence(
 
@@ -2667,16 +3088,13 @@ function whiteLadyMoment(){
 
     ()=>{
 
-      /*
-        視線を外した瞬間に消える。
-      */
-
       hideStoryNPC(
         "whiteLady"
       );
 
 
       setTimeout(
+
         ()=>{
 
           storyDialogueSequence(
@@ -2711,7 +3129,9 @@ function whiteLadyMoment(){
           );
 
         },
+
         400
+
       );
 
     }
@@ -2731,9 +3151,12 @@ function showFinalChoice(){
 
     {
 
-      jp:"今、白い服の女性がいた",
+      jp:
+        "今、白い服の女性がいた",
 
-      cn:"刚才那里有一个穿白衣服的女人。",
+      cn:
+        "刚才那里有一个穿白衣服的女人。",
+
 
       action(){
 
@@ -2775,9 +3198,12 @@ function showFinalChoice(){
 
     {
 
-      jp:"……なんでもない",
+      jp:
+        "……なんでもない",
 
-      cn:"……没什么。",
+      cn:
+        "……没什么。",
+
 
       action(){
 
@@ -2874,6 +3300,10 @@ function finishChapterOne(){
 }
 
 
+// ==========================================================
+// CHAPTER END CARD
+// ==========================================================
+
 function showChapterEnd(){
 
   const end =
@@ -2888,6 +3318,7 @@ function showChapterEnd(){
 
 
   setTimeout(
+
     ()=>{
 
       end.classList.remove(
@@ -2900,7 +3331,9 @@ function showChapterEnd(){
       );
 
     },
+
     3000
+
   );
 
 }
@@ -2914,7 +3347,9 @@ function initializeStoryMode(){
 
   loadStory();
 
+
   storyAddStyle();
+
 
   storyCreateDOM();
 
@@ -2924,8 +3359,11 @@ function initializeStoryMode(){
       "exploreModeButton"
     )
     .addEventListener(
+
       "click",
+
       startExploreMode
+
     );
 
 
@@ -2934,8 +3372,11 @@ function initializeStoryMode(){
       "storyModeButton"
     )
     .addEventListener(
+
       "click",
+
       startStoryMode
+
     );
 
 }
@@ -2945,5 +3386,5 @@ initializeStoryMode();
 
 
 console.log(
-  "杭州探索録 Story Mode Ver.2 / Chapter 1 loaded"
+  "杭州探索録 Story Mode Ver.2.1 / Chapter 1 loaded"
 );
