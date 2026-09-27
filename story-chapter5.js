@@ -3,7 +3,7 @@
 /*
 ==========================================================
  杭州探索録
- CHAPTER 5 EXPANSION Ver.1.0
+ CHAPTER 5 EXPANSION Ver.1.1
 
  第五章「西湖の夜」
 
@@ -12,6 +12,10 @@
  story-chapter3.js
  story-chapter4.js
  story-chapter5.js
+
+ ★ Ver.1.1
+ ・選択肢の undefined 表示を修正
+ ・storyChoice() の正式仕様 jp / cn に統一
 
  ★ 言語ルール
  ・「杭州探索録」のナレーション → 日本語
@@ -106,10 +110,6 @@ function watchChapterFiveStart(){
   CH5.startScheduled =
     true;
 
-
-  /*
-    第四章エンドカード終了後に開始
-  */
 
   setTimeout(
 
@@ -248,7 +248,6 @@ function startChapterFive(){
 
   // ========================================================
   // 白姑娘
-  // 今夜はまだ現れない
   // ========================================================
 
   STORY_NPCS.whiteLady.visible =
@@ -265,7 +264,7 @@ function startChapterFive(){
 
 
   // ========================================================
-  // 陈叔も今回は非表示
+  // 陈叔
   // ========================================================
 
   STORY_NPCS.uncleChen.visible =
@@ -398,53 +397,67 @@ function chapterFiveOpening(){
 
 // ==========================================================
 // OPENING CHOICE
+// Ver.1.1 FIX
 // ==========================================================
 
 function chapterFiveOpeningChoice(){
 
-  storyChoice(
+  storyChoice([
 
-    [
+    {
 
-      {
-        text:"「うん、何か知っている気がする」\n嗯，我觉得她肯定知道些什么。",
-        action:()=>{
+      jp:"うん、何か知っている気がする",
 
-          STORY.flags.chapter5Concern =
-            "knows";
+      cn:"嗯，我觉得她肯定知道些什么。",
 
-          chapterFiveAfterOpeningChoice();
+      action(){
 
-        }
-      },
+        STORY.flags.chapter5Concern =
+          "knows";
 
-      {
-        text:"「昨日の青い影が気になる」\n我还是很在意昨天说的那个青色的影子。",
-        action:()=>{
+        chapterFiveAfterOpeningChoice();
 
-          STORY.flags.chapter5Concern =
-            "shadow";
-
-          chapterFiveAfterOpeningChoice();
-
-        }
-      },
-
-      {
-        text:"「今日は来ないのかな」\n她今天不会不来了吧？",
-        action:()=>{
-
-          STORY.flags.chapter5Concern =
-            "absent";
-
-          chapterFiveAfterOpeningChoice();
-
-        }
       }
 
-    ]
+    },
 
-  );
+
+    {
+
+      jp:"昨日の青い影が気になる",
+
+      cn:"我还是很在意昨天说的那个青色的影子。",
+
+      action(){
+
+        STORY.flags.chapter5Concern =
+          "shadow";
+
+        chapterFiveAfterOpeningChoice();
+
+      }
+
+    },
+
+
+    {
+
+      jp:"今日は来ないのかな",
+
+      cn:"她今天不会不来了吧？",
+
+      action(){
+
+        STORY.flags.chapter5Concern =
+          "absent";
+
+        chapterFiveAfterOpeningChoice();
+
+      }
+
+    }
+
+  ]);
 
 }
 
@@ -575,10 +588,6 @@ function setChapterFivePartyText(text){
 
 function updateChapterFive(){
 
-  // --------------------------------------------------------
-  // 第四章終了監視
-  // --------------------------------------------------------
-
   watchChapterFiveStart();
 
 
@@ -589,15 +598,6 @@ function updateChapterFive(){
     return;
   }
 
-
-  /*
-    マップ移動を検出。
-
-    第五章では小雨と一緒に
-    food → market → hotel → lake
-    と進むため、マップが変わったら
-    小雨を安全に主人公の後ろへ再配置する。
-  */
 
   handleChapterFiveMapChange();
 
@@ -610,10 +610,10 @@ function updateChapterFive(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 1
-  // 写真を見る
-  // --------------------------------------------------------
+  // 写真イベント
+  // ========================================================
 
   if(
     CH5.step === 1 &&
@@ -628,10 +628,10 @@ function updateChapterFive(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 2
   // 失踪事件
-  // --------------------------------------------------------
+  // ========================================================
 
   if(
     CH5.step === 2 &&
@@ -646,10 +646,10 @@ function updateChapterFive(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 3
-  // 西湖へ移動
-  // --------------------------------------------------------
+  // 西湖到着
+  // ========================================================
 
   if(
     CH5.step === 3 &&
@@ -667,10 +667,10 @@ function updateChapterFive(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 4
-  // 白姑娘を発見
-  // --------------------------------------------------------
+  // 白姑娘発見
+  // ========================================================
 
   if(
     CH5.step === 4 &&
@@ -685,10 +685,10 @@ function updateChapterFive(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 5
   // 青い影
-  // --------------------------------------------------------
+  // ========================================================
 
   if(
     CH5.step === 5 &&
@@ -745,11 +745,6 @@ function handleChapterFiveMapChange(){
     [];
 
 
-  /*
-    同行中の場合だけ小雨を
-    新マップへ移動させる。
-  */
-
   if(
     STORY.partyActive &&
     STORY.partyType === "xiaoyu"
@@ -782,16 +777,6 @@ function handleChapterFiveMapChange(){
 // ==========================================================
 // CH5 FOLLOWER SYSTEM
 // ==========================================================
-
-/*
-  Ver.2.2の安定した
-  「主人公の履歴を後から辿る」
-  方式を第五章用に独立して実装。
-
-  story.js側の同行処理が
-  food限定でも、こちらが
-  market / hotel / lakeで補完する。
-*/
 
 function updateChapterFiveFollower(){
 
@@ -870,10 +855,6 @@ function updateChapterFiveFollower(){
   }
 
 
-  /*
-    主人公の約12サンプル前を追従
-  */
-
   if(
     STORY.playerTrail.length >
     12
@@ -938,10 +919,6 @@ function checkChapterFivePhotoScene(){
     player.y /
     TILE;
 
-
-  /*
-    夜市中央。
-  */
 
   const inside =
 
@@ -1150,12 +1127,6 @@ function checkChapterFiveMissingScene(){
     TILE;
 
 
-  /*
-    南側出口に近い場所。
-    この事件を見て、そのまま
-    西湖へ向かう導線にする。
-  */
-
   const inside =
 
     px >= 20 &&
@@ -1361,53 +1332,67 @@ function beginChapterFiveMissingScene(){
 
 // ==========================================================
 // DECISION
+// Ver.1.1 FIX
 // ==========================================================
 
 function chapterFiveDecision(){
 
-  storyChoice(
+  storyChoice([
 
-    [
+    {
 
-      {
-        text:"「西湖へ行こう」\n我们去西湖吧。",
-        action:()=>{
+      jp:"西湖へ行こう",
 
-          STORY.flags.chapter5Decision =
-            "go";
+      cn:"我们去西湖吧。",
 
-          chapterFiveGoToLake();
+      action(){
 
-        }
-      },
+        STORY.flags.chapter5Decision =
+          "go";
 
-      {
-        text:"「白姑娘を探そう」\n我们去找白姑娘吧。",
-        action:()=>{
+        chapterFiveGoToLake();
 
-          STORY.flags.chapter5Decision =
-            "findWhite";
-
-          chapterFiveGoToLake();
-
-        }
-      },
-
-      {
-        text:"「あの水が気になる」\n我很在意地上的这些水。",
-        action:()=>{
-
-          STORY.flags.chapter5Decision =
-            "water";
-
-          chapterFiveGoToLake();
-
-        }
       }
 
-    ]
+    },
 
-  );
+
+    {
+
+      jp:"白姑娘を探そう",
+
+      cn:"我们去找白姑娘吧。",
+
+      action(){
+
+        STORY.flags.chapter5Decision =
+          "findWhite";
+
+        chapterFiveGoToLake();
+
+      }
+
+    },
+
+
+    {
+
+      jp:"あの水が気になる",
+
+      cn:"我很在意地上的这些水。",
+
+      action(){
+
+        STORY.flags.chapter5Decision =
+          "water";
+
+        chapterFiveGoToLake();
+
+      }
+
+    }
+
+  ]);
 
 }
 
@@ -1693,14 +1678,6 @@ function checkChapterFiveWhiteLady(){
     TILE;
 
 
-  /*
-    西湖中央～湖畔側。
-    既存の
-    「西湖を眺める」
-    「水面を見る」
-    周辺を利用。
-  */
-
   const inside =
 
     px >= 18 &&
@@ -1745,10 +1722,6 @@ function beginWhiteLadyLakeScene(){
   STORY.step =
     5;
 
-
-  // --------------------------------------------------------
-  // 白姑娘出現
-  // --------------------------------------------------------
 
   STORY_NPCS.whiteLady.map =
     "lake";
@@ -2016,11 +1989,6 @@ function chapterFiveWhoIsShe(){
 
 function startShadowSearch(){
 
-  /*
-    プレイヤーに少しだけ
-    自分で湖へ近づかせる。
-  */
-
   STORY.partyActive =
     false;
 
@@ -2058,11 +2026,6 @@ function checkChapterFiveShadow(){
     player.y /
     TILE;
 
-
-  /*
-    既存の「水面を見る」
-    (21,18)周辺。
-  */
 
   const inside =
 
@@ -2267,59 +2230,73 @@ function beginChapterFiveShadowScene(){
 
 // ==========================================================
 // FINAL CHOICE
+// Ver.1.1 FIX
 // ==========================================================
 
 function chapterFiveFinalChoice(){
 
-  storyChoice(
+  storyChoice([
 
-    [
+    {
 
-      {
-        text:"「あなたはいったい何者なの？」\n你到底是什么人？",
-        action:()=>{
+      jp:"あなたはいったい何者なの？",
 
-          STORY.flags.chapter5FinalChoice =
-            "identity";
+      cn:"你到底是什么人？",
 
-          chapterFiveFinalResponse(
-            "identity"
-          );
+      action(){
 
-        }
-      },
+        STORY.flags.chapter5FinalChoice =
+          "identity";
 
-      {
-        text:"「あの影を知っているんだね」\n你认识刚才那个东西，对吧？",
-        action:()=>{
+        chapterFiveFinalResponse(
+          "identity"
+        );
 
-          STORY.flags.chapter5FinalChoice =
-            "shadow";
-
-          chapterFiveFinalResponse(
-            "shadow"
-          );
-
-        }
-      },
-
-      {
-        text:"「一人で残るのは危険だ」\n你一个人留在这里太危险了。",
-        action:()=>{
-
-          STORY.flags.chapter5FinalChoice =
-            "danger";
-
-          chapterFiveFinalResponse(
-            "danger"
-          );
-
-        }
       }
 
-    ]
+    },
 
-  );
+
+    {
+
+      jp:"あの影を知っているんだね",
+
+      cn:"你认识刚才那个东西，对吧？",
+
+      action(){
+
+        STORY.flags.chapter5FinalChoice =
+          "shadow";
+
+        chapterFiveFinalResponse(
+          "shadow"
+        );
+
+      }
+
+    },
+
+
+    {
+
+      jp:"一人で残るのは危険だ",
+
+      cn:"你一个人留在这里太危险了。",
+
+      action(){
+
+        STORY.flags.chapter5FinalChoice =
+          "danger";
+
+        chapterFiveFinalResponse(
+          "danger"
+        );
+
+      }
+
+    }
+
+  ]);
 
 }
 
@@ -2330,7 +2307,8 @@ function chapterFiveFinalChoice(){
 
 function chapterFiveFinalResponse(type){
 
-  const lines = [];
+  const lines =
+    [];
 
 
   if(type === "identity"){
@@ -2598,5 +2576,5 @@ function showChapterFiveEnd(){
 
 
 console.log(
-  "杭州探索録 Chapter 5 Ver.1.0 / 西湖の夜 loaded"
+  "杭州探索録 Chapter 5 Ver.1.1 / 西湖の夜 loaded"
 );
