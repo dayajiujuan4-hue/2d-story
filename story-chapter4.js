@@ -3,22 +3,21 @@
 /*
 ==========================================================
  杭州探索録
- CHAPTER 4 EXPANSION Ver.1
+ CHAPTER 4 EXPANSION Ver.1.1
 
  第四章「消える人」
 
+ 読み込み順：
  story.js
- → story-chapter3.js
- → story-chapter4.js
+ story-chapter3.js
+ story-chapter4.js
 
- の順番で読み込む。
-
- ★ 第四章のテーマ
- ・楽しかった三人の日常に異変が入り始める
- ・夜市で「人が消える」という噂
- ・白姑娘だけが何かを知っている
- ・まだ「青蛇」という名前は出さない
- ・西湖、水、青い影を伏線として置く
+ ★ Ver.1.1 修正
+ ・showChapterThreeEnd() の上書きを廃止
+ ・第三章終了フラグを毎フレーム監視
+ ・第三章エンド後に第四章を自動開始
+ ・storyDarken / storyUndarken に依存しない
+ ・第三章以前には一切手を加えない
 ==========================================================
 */
 
@@ -30,6 +29,10 @@
 const CH4 = {
 
   active:false,
+
+  // 第四章開始タイマーを
+  // 二重登録しないためのフラグ
+  startScheduled:false,
 
   step:0,
 
@@ -49,35 +52,90 @@ const CH4 = {
 
 
 // ==========================================================
-// CHAPTER 3 END HOOK
+// START WATCHER
 // ==========================================================
 
 /*
-  第三章のエンドカードをそのまま使い、
-  表示終了後に第四章へ進む。
+  第三章側では終了時に
+
+  STORY.flags.chapter3 = true;
+  STORY.chapterComplete = true;
+
+  が設定される。
+
+  showChapterThreeEnd() 自体は触らず、
+  この状態だけを監視する。
 */
 
-const CH4_originalShowChapterThreeEnd =
-  showChapterThreeEnd;
+function watchChapterFourStart(){
+
+  if(
+    CH4.active ||
+    CH4.startScheduled
+  ){
+    return;
+  }
 
 
-showChapterThreeEnd =
-function(){
+  if(
+    STORY.mode !== "story"
+  ){
+    return;
+  }
 
-  CH4_originalShowChapterThreeEnd();
+
+  if(
+    STORY.chapter !== 3
+  ){
+    return;
+  }
+
+
+  if(
+    STORY.flags.chapter3 !== true
+  ){
+    return;
+  }
+
+
+  if(
+    STORY.chapterComplete !== true
+  ){
+    return;
+  }
+
+
+  CH4.startScheduled =
+    true;
+
 
   /*
-    第三章側では
-    約3.4秒エンドカードを表示するので、
-    その後から第四章を開始。
+    第三章エンドカードが
+    約3.4秒表示されるため、
+    余裕を持って4.1秒待つ。
   */
 
   setTimeout(
-    startChapterFour,
+
+    ()=>{
+
+      if(
+        !CH4.active &&
+        STORY.mode === "story" &&
+        STORY.chapter === 3
+      ){
+
+        startChapterFour();
+
+      }
+
+    },
+
     4100
+
   );
 
-};
+}
 
 
 // ==========================================================
@@ -87,6 +145,9 @@ function(){
 function startChapterFour(){
 
   CH4.active =
+    true;
+
+  CH4.startScheduled =
     true;
 
   CH4.step =
@@ -130,9 +191,12 @@ function startChapterFour(){
     [];
 
 
-  /*
-    今回も武林夜市・小吃街から開始。
-  */
+  hidePartyStatus();
+
+
+  // ========================================================
+  // MAP RESET
+  // ========================================================
 
   currentMapId =
     "food";
@@ -151,9 +215,9 @@ function startChapterFour(){
     false;
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // 小雨
-  // --------------------------------------------------------
+  // ========================================================
 
   STORY_NPCS.xiaoyu.map =
     "food";
@@ -176,10 +240,13 @@ function startChapterFour(){
   STORY_NPCS.xiaoyu.storyInteract =
     false;
 
+  STORY_NPCS.xiaoyu.storyMoving =
+    false;
 
-  // --------------------------------------------------------
+
+  // ========================================================
   // 白姑娘
-  // --------------------------------------------------------
+  // ========================================================
 
   STORY_NPCS.whiteLady.map =
     "food";
@@ -205,10 +272,13 @@ function startChapterFour(){
   STORY_NPCS.whiteLady.storyInteract =
     false;
 
+  STORY_NPCS.whiteLady.storyMoving =
+    false;
 
-  // --------------------------------------------------------
+
+  // ========================================================
   // 陈叔
-  // --------------------------------------------------------
+  // ========================================================
 
   STORY_NPCS.uncleChen.map =
     "food";
@@ -231,6 +301,13 @@ function startChapterFour(){
   STORY_NPCS.uncleChen.storyInteract =
     false;
 
+  STORY_NPCS.uncleChen.storyMoving =
+    false;
+
+
+  // ========================================================
+  // CAMERA
+  // ========================================================
 
   camera.x =
     player.x -
@@ -242,6 +319,10 @@ function startChapterFour(){
 
   clampCamera();
 
+
+  // ========================================================
+  // UI
+  // ========================================================
 
   setChapterLabel(
     "第四章",
@@ -422,22 +503,31 @@ function startChapterFourFirstWalk(){
 
 
 // ==========================================================
-// CHAPTER 4 UPDATE
+// CHAPTER 4 EVENT UPDATE
 // ==========================================================
 
-const CH4_originalUpdateStoryEvents =
-  updateStoryEvents;
+function updateChapterFour(){
+
+  // ========================================================
+  // まず第三章終了を監視
+  // ========================================================
+
+  watchChapterFourStart();
 
 
-updateStoryEvents =
-function(){
-
-  CH4_originalUpdateStoryEvents();
-
+  // ========================================================
+  // 第四章開始前なら終了
+  // ========================================================
 
   if(
     !CH4.active ||
-    STORY.chapter !== 4 ||
+    STORY.chapter !== 4
+  ){
+    return;
+  }
+
+
+  if(
     dialogue.active ||
     STORY.choiceOpen
   ){
@@ -445,10 +535,10 @@ function(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 1
   // 陈叔の屋台
-  // --------------------------------------------------------
+  // ========================================================
 
   if(
     CH4.step === 1 &&
@@ -463,10 +553,10 @@ function(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 2
-  // 夜市中央で最初の噂
-  // --------------------------------------------------------
+  // 最初の失踪の噂
+  // ========================================================
 
   if(
     CH4.step === 2 &&
@@ -481,10 +571,10 @@ function(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 3
-  // 南側でもう一つの噂
-  // --------------------------------------------------------
+  // 二つ目の噂
+  // ========================================================
 
   if(
     CH4.step === 3 &&
@@ -499,10 +589,10 @@ function(){
   }
 
 
-  // --------------------------------------------------------
+  // ========================================================
   // STEP 4
-  // 「青いもの」の話
-  // --------------------------------------------------------
+  // 青い影
+  // ========================================================
 
   if(
     CH4.step === 4 &&
@@ -516,6 +606,32 @@ function(){
 
   }
 
+}
+
+
+// ==========================================================
+// UPDATE HOOK
+// ==========================================================
+
+/*
+  story.js → chapter3.js の順に
+  updateStoryEvents がラップされている。
+
+  その最新版をここで保存し、
+  その後に第四章処理だけを追加する。
+*/
+
+const CH4_originalUpdateStoryEvents =
+  updateStoryEvents;
+
+
+updateStoryEvents =
+function(){
+
+  CH4_originalUpdateStoryEvents();
+
+  updateChapterFour();
+
 };
 
 
@@ -525,14 +641,6 @@ function(){
 
 function checkChapterFourChen(){
 
-  /*
-    烧烤屋台：
-    x=13,y=10
-
-    第一章と同じく、
-    屋台前の広めの通路を判定する。
-  */
-
   const px =
     player.x /
     TILE;
@@ -541,6 +649,12 @@ function checkChapterFourChen(){
     player.y /
     TILE;
 
+
+  /*
+    焼烤屋台周辺。
+
+    第一章と同じ広めの判定。
+  */
 
   const inside =
 
@@ -596,6 +710,9 @@ function beginChapterFourChenScene(){
   STORY_NPCS.xiaoyu.direction =
     "left";
 
+  STORY_NPCS.xiaoyu.storyMoving =
+    false;
+
 
   STORY_NPCS.whiteLady.x =
     20*TILE;
@@ -605,6 +722,9 @@ function beginChapterFourChenScene(){
 
   STORY_NPCS.whiteLady.direction =
     "left";
+
+  STORY_NPCS.whiteLady.storyMoving =
+    false;
 
 
   STORY_NPCS.uncleChen.visible =
@@ -814,10 +934,6 @@ function checkChapterFourRumor(){
     TILE;
 
 
-  /*
-    夜市中央。
-  */
-
   const inside =
 
     px >= 27 &&
@@ -973,7 +1089,7 @@ function beginChapterFourRumor(){
 
 
 // ==========================================================
-// WALK AFTER RUMOR
+// WALK AFTER FIRST RUMOR
 // ==========================================================
 
 function restartChapterFourWalkAfterRumor(){
@@ -1212,7 +1328,7 @@ function restartChapterFourWalkForBlueClue(){
 
 
   setStoryObjective(
-    "人混みの中を歩こう"
+    "夜市の中央へ戻ろう"
   );
 
 
@@ -1235,10 +1351,6 @@ function checkChapterFourBlueClue(){
     player.y /
     TILE;
 
-
-  /*
-    最後は中央付近へ戻ると発生。
-  */
 
   const inside =
 
@@ -1347,14 +1459,7 @@ function beginBlueClueScene(){
         speaker:"夜市の客",
         portrait:"tourist",
         expression:"normal",
-        text:"うん。"
-      },
-
-      {
-        speaker:"夜市の客",
-        portrait:"tourist",
-        expression:"normal",
-        text:"青っぽく見えた。"
+        text:"うん。青っぽく見えた。"
       },
 
       {
@@ -1423,7 +1528,7 @@ function beginBlueClueScene(){
 
 
 // ==========================================================
-// WHITE LADY REALIZES SOMETHING
+// WHITE LADY UNEASE
 // ==========================================================
 
 function beginWhiteLadyUnease(){
@@ -1601,7 +1706,7 @@ function whiteLadyLeaves(){
         speaker:"杭州探索録",
         portrait:"tourist",
         expression:"normal",
-        text:"第三章の夜とは違い、彼女は一度も振り返らなかった。"
+        text:"前の夜とは違い、彼女は一度も振り返らなかった。"
       },
 
       {
@@ -1644,7 +1749,9 @@ function beginFinalRumor(){
     true;
 
 
-  storyDarken();
+  setStoryObjective(
+    "西湖から来た噂"
+  );
 
 
   setTimeout(
@@ -1746,9 +1853,6 @@ function beginFinalRumor(){
 
 function finishChapterFour(){
 
-  storyUndarken();
-
-
   CH4.step =
     6;
 
@@ -1832,7 +1936,7 @@ function showChapterFourEnd(){
   configureEndCard(
     4,
     "第四章　完",
-    "―― 水の底で、何かが目を覚ました。"
+    "―― 西湖の水辺で、青い影が揺れていた。"
   );
 
 
@@ -1870,5 +1974,5 @@ function showChapterFourEnd(){
 
 
 console.log(
-  "杭州探索録 Chapter 4 / 消える人 loaded"
+  "杭州探索録 Chapter 4 Ver.1.1 / 消える人 loaded"
 );
