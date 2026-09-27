@@ -3,20 +3,22 @@
 /*
 ==========================================================
  杭州探索録
- STORY MODE Ver.2.2
+ STORY MODE Ver.3
 
  第一章「武林の夜」
+ 第二章「白衣の女」
 
- ★ Ver.2.2
- ・小雨の自動経路移動を完全廃止
- ・主人公の移動履歴を利用した同行システム
- ・小雨が主人公の後ろをついてくる
- ・主人公が屋台エリアへ入ると自動イベント
- ・屋台到着時に小雨を所定位置へ配置
- ・motion.js のNPC移動処理に依存しない
- ・将来、白姑娘を2人目の同行者として追加可能
-
- portraits.js Ver.1 と併用
+ ★ Ver.3
+ ・Ver.2.2の主人公追跡型同行システムを継承
+ ・第一章終了後、そのまま第二章へ進行可能
+ ・第二章前半は怪談・ホラー寄り
+ ・白衣の女を複数回目撃
+ ・最初は主人公にしか見えない
+ ・後半で小雨も白衣の女を目撃
+ ・「这个，怎么吃？」で緊張を反転
+ ・白姑娘との正式な出会い
+ ・スマホ決済イベント
+ ・三人同行システム
 ==========================================================
 */
 
@@ -25,8 +27,7 @@
 // SAVE
 // ==========================================================
 
-const STORY_SAVE_KEY =
-  "hangzhouStorySaveV22";
+const STORY_SAVE_KEY = "hangzhouStorySaveV3";
 
 
 const STORY = {
@@ -34,7 +35,6 @@ const STORY = {
   mode:null,
 
   chapter:1,
-
   step:0,
 
   started:false,
@@ -44,19 +44,24 @@ const STORY = {
   flags:{},
 
   sequence:null,
-
   sequenceIndex:0,
 
   chapterComplete:false,
 
-  // 同行状態
   partyActive:false,
 
-  // 主人公の過去位置
+  // "xiaoyu" / "trio"
+  partyType:null,
+
   playerTrail:[],
 
-  // 屋台イベント発火済みか
-  stallTriggered:false
+  stallTriggered:false,
+
+  chapter2EventTriggered:false,
+
+  whiteEncounterTriggered:false,
+
+  trioStarted:false
 
 };
 
@@ -70,25 +75,13 @@ function saveStory(){
   try{
 
     localStorage.setItem(
-
       STORY_SAVE_KEY,
-
       JSON.stringify({
-
-        chapter:
-          STORY.chapter,
-
-        step:
-          STORY.step,
-
-        flags:
-          STORY.flags,
-
-        chapterComplete:
-          STORY.chapterComplete
-
+        chapter:STORY.chapter,
+        step:STORY.step,
+        flags:STORY.flags,
+        chapterComplete:STORY.chapterComplete
       })
-
     );
 
   }
@@ -113,27 +106,21 @@ function loadStory(){
         STORY_SAVE_KEY
       );
 
-
     if(!raw){
       return;
     }
 
-
     const data =
       JSON.parse(raw);
-
 
     STORY.chapter =
       data.chapter || 1;
 
-
     STORY.step =
       data.step || 0;
 
-
     STORY.flags =
       data.flags || {};
-
 
     STORY.chapterComplete =
       !!data.chapterComplete;
@@ -156,11 +143,6 @@ function loadStory(){
 // ==========================================================
 
 const STORY_NPCS = {
-
-
-  // --------------------------------------------------------
-  // 林小雨
-  // --------------------------------------------------------
 
   xiaoyu:{
 
@@ -194,10 +176,6 @@ const STORY_NPCS = {
   },
 
 
-  // --------------------------------------------------------
-  // 陈叔
-  // --------------------------------------------------------
-
   uncleChen:{
 
     id:"uncleChen",
@@ -229,10 +207,6 @@ const STORY_NPCS = {
 
   },
 
-
-  // --------------------------------------------------------
-  // 白い服の女性
-  // --------------------------------------------------------
 
   whiteLady:{
 
@@ -302,25 +276,19 @@ if(
 function storyAddStyle(){
 
   const style =
-    document.createElement(
-      "style"
-    );
-
+    document.createElement("style");
 
   style.textContent = `
 
     #storyModeScreen{
 
       position:fixed;
-
       inset:0;
 
       z-index:9999;
 
       display:flex;
-
       align-items:center;
-
       justify-content:center;
 
       background:
@@ -398,8 +366,7 @@ function storyAddStyle(){
 
       color:#aaa39a;
 
-      margin:
-        10px 0 36px;
+      margin:10px 0 36px;
 
     }
 
@@ -475,7 +442,6 @@ function storyAddStyle(){
       position:fixed;
 
       left:18px;
-
       top:100px;
 
       z-index:600;
@@ -535,7 +501,6 @@ function storyAddStyle(){
       position:fixed;
 
       left:50%;
-
       bottom:170px;
 
       transform:
@@ -629,7 +594,6 @@ function storyAddStyle(){
       display:flex;
 
       align-items:center;
-
       justify-content:center;
 
       pointer-events:none;
@@ -692,7 +656,6 @@ function storyAddStyle(){
       display:flex;
 
       align-items:center;
-
       justify-content:center;
 
       pointer-events:none;
@@ -755,18 +718,11 @@ function storyAddStyle(){
     }
 
 
-    /*
-    ========================================================
-     同行中表示
-    ========================================================
-    */
-
     #storyPartyStatus{
 
       position:fixed;
 
       right:18px;
-
       bottom:18px;
 
       z-index:500;
@@ -787,12 +743,44 @@ function storyAddStyle(){
 
       opacity:0;
 
-      transition:opacity .25s;
+      transition:
+        opacity .25s;
 
     }
 
 
     #storyPartyStatus.show{
+      opacity:1;
+    }
+
+
+    /*
+      第二章の不穏演出。
+      画面を一瞬暗くするためのオーバーレイ。
+    */
+
+    #storyDarkness{
+
+      position:fixed;
+
+      inset:0;
+
+      z-index:8500;
+
+      pointer-events:none;
+
+      opacity:0;
+
+      background:
+        rgba(0,5,12,.48);
+
+      transition:
+        opacity .7s;
+
+    }
+
+
+    #storyDarkness.show{
       opacity:1;
     }
 
@@ -803,7 +791,6 @@ function storyAddStyle(){
         grid-template-columns:1fr;
       }
 
-
       #storyObjective{
         width:220px;
       }
@@ -813,9 +800,7 @@ function storyAddStyle(){
   `;
 
 
-  document.head.appendChild(
-    style
-  );
+  document.head.appendChild(style);
 
 }
 
@@ -827,14 +812,10 @@ function storyAddStyle(){
 function storyCreateDOM(){
 
   const mode =
-    document.createElement(
-      "div"
-    );
-
+    document.createElement("div");
 
   mode.id =
     "storyModeScreen";
-
 
   mode.innerHTML = `
 
@@ -893,29 +874,24 @@ function storyCreateDOM(){
 
   `;
 
-
-  document.body.appendChild(
-    mode
-  );
+  document.body.appendChild(mode);
 
 
   const objective =
-    document.createElement(
-      "div"
-    );
-
+    document.createElement("div");
 
   objective.id =
     "storyObjective";
 
-
   objective.className =
     "hidden";
 
-
   objective.innerHTML = `
 
-    <div class="chapter">
+    <div
+      class="chapter"
+      id="storyChapterLabel"
+    >
       第一章　武林の夜
     </div>
 
@@ -926,50 +902,42 @@ function storyCreateDOM(){
 
   `;
 
-
-  document.body.appendChild(
-    objective
-  );
+  document.body.appendChild(objective);
 
 
   const choices =
-    document.createElement(
-      "div"
-    );
-
+    document.createElement("div");
 
   choices.id =
     "storyChoices";
 
-
   choices.className =
     "hidden";
 
-
-  document.body.appendChild(
-    choices
-  );
+  document.body.appendChild(choices);
 
 
   const card =
-    document.createElement(
-      "div"
-    );
-
+    document.createElement("div");
 
   card.id =
     "storyChapterCard";
-
 
   card.innerHTML = `
 
     <div class="inner">
 
-      <div class="number">
+      <div
+        class="number"
+        id="storyCardNumber"
+      >
         CHAPTER 1
       </div>
 
-      <div class="title">
+      <div
+        class="title"
+        id="storyCardTitle"
+      >
         武林の夜
       </div>
 
@@ -977,35 +945,37 @@ function storyCreateDOM(){
 
   `;
 
-
-  document.body.appendChild(
-    card
-  );
+  document.body.appendChild(card);
 
 
   const end =
-    document.createElement(
-      "div"
-    );
-
+    document.createElement("div");
 
   end.id =
     "storyChapterEnd";
-
 
   end.innerHTML = `
 
     <div class="inner">
 
-      <div class="small">
+      <div
+        class="small"
+        id="storyEndSmall"
+      >
         CHAPTER 1
       </div>
 
-      <div class="big">
+      <div
+        class="big"
+        id="storyEndBig"
+      >
         第一章　完
       </div>
 
-      <div class="next">
+      <div
+        class="next"
+        id="storyEndNext"
+      >
         ―― 武林の夜は、まだ続いている。
       </div>
 
@@ -1013,35 +983,36 @@ function storyCreateDOM(){
 
   `;
 
-
-  document.body.appendChild(
-    end
-  );
+  document.body.appendChild(end);
 
 
   const party =
-    document.createElement(
-      "div"
-    );
-
+    document.createElement("div");
 
   party.id =
     "storyPartyStatus";
 
-
   party.textContent =
     "同行中：林小雨";
 
+  document.body.appendChild(party);
+
+
+  const darkness =
+    document.createElement("div");
+
+  darkness.id =
+    "storyDarkness";
 
   document.body.appendChild(
-    party
+    darkness
   );
 
 }
 
 
 // ==========================================================
-// UTILITY
+// UI UTILITY
 // ==========================================================
 
 function setStoryObjective(text){
@@ -1051,12 +1022,95 @@ function setStoryObjective(text){
       "storyObjectiveText"
     );
 
+  if(el){
+    el.textContent = text;
+  }
+
+}
+
+
+function setChapterLabel(
+  chapter,
+  title
+){
+
+  const el =
+    document.getElementById(
+      "storyChapterLabel"
+    );
 
   if(el){
 
     el.textContent =
-      text;
+      `${chapter}　${title}`;
 
+  }
+
+}
+
+
+function configureChapterCard(
+  number,
+  title
+){
+
+  const num =
+    document.getElementById(
+      "storyCardNumber"
+    );
+
+  const titleEl =
+    document.getElementById(
+      "storyCardTitle"
+    );
+
+  if(num){
+    num.textContent =
+      `CHAPTER ${number}`;
+  }
+
+  if(titleEl){
+    titleEl.textContent =
+      title;
+  }
+
+}
+
+
+function configureEndCard(
+  number,
+  title,
+  nextText
+){
+
+  const small =
+    document.getElementById(
+      "storyEndSmall"
+    );
+
+  const big =
+    document.getElementById(
+      "storyEndBig"
+    );
+
+  const next =
+    document.getElementById(
+      "storyEndNext"
+    );
+
+  if(small){
+    small.textContent =
+      `CHAPTER ${number}`;
+  }
+
+  if(big){
+    big.textContent =
+      title;
+  }
+
+  if(next){
+    next.textContent =
+      nextText;
   }
 
 }
@@ -1069,38 +1123,34 @@ function showChapterCard(){
       "storyChapterCard"
     );
 
-
   card.classList.add(
     "show"
   );
 
-
   setTimeout(
-
     ()=>{
-
       card.classList.remove(
         "show"
       );
-
     },
-
     1200
-
   );
 
 }
 
 
-function showPartyStatus(){
+function showPartyStatus(text){
 
   const el =
     document.getElementById(
       "storyPartyStatus"
     );
 
-
   if(el){
+
+    if(text){
+      el.textContent = text;
+    }
 
     el.classList.add(
       "show"
@@ -1118,13 +1168,40 @@ function hidePartyStatus(){
       "storyPartyStatus"
     );
 
-
   if(el){
 
     el.classList.remove(
       "show"
     );
 
+  }
+
+}
+
+
+function storyDarken(){
+
+  const el =
+    document.getElementById(
+      "storyDarkness"
+    );
+
+  if(el){
+    el.classList.add("show");
+  }
+
+}
+
+
+function storyUndarken(){
+
+  const el =
+    document.getElementById(
+      "storyDarkness"
+    );
+
+  if(el){
+    el.classList.remove("show");
   }
 
 }
@@ -1139,24 +1216,21 @@ function startExploreMode(){
   STORY.mode =
     "explore";
 
-
   STORY.started =
     false;
-
 
   STORY.partyActive =
     false;
 
+  STORY.partyType =
+    null;
 
   STORY.playerTrail =
     [];
 
-
   hidePartyStatus();
 
-
   hideAllStoryNPCs();
-
 
   document
     .getElementById(
@@ -1165,7 +1239,6 @@ function startExploreMode(){
     .classList.add(
       "hidden"
     );
-
 
   document
     .getElementById(
@@ -1183,38 +1256,41 @@ function startStoryMode(){
   STORY.mode =
     "story";
 
-
   STORY.started =
     true;
-
 
   STORY.chapter =
     1;
 
-
   STORY.step =
     0;
-
 
   STORY.flags =
     {};
 
-
   STORY.chapterComplete =
     false;
-
 
   STORY.partyActive =
     false;
 
+  STORY.partyType =
+    null;
 
   STORY.playerTrail =
     [];
 
-
   STORY.stallTriggered =
     false;
 
+  STORY.chapter2EventTriggered =
+    false;
+
+  STORY.whiteEncounterTriggered =
+    false;
+
+  STORY.trioStarted =
+    false;
 
   document
     .getElementById(
@@ -1224,7 +1300,6 @@ function startStoryMode(){
       "hidden"
     );
 
-
   document
     .getElementById(
       "storyObjective"
@@ -1233,51 +1308,48 @@ function startStoryMode(){
       "hidden"
     );
 
-
   hidePartyStatus();
-
 
   currentMapId =
     "food";
 
-
   player.x =
     MAPS.food.spawn.x*TILE;
-
 
   player.y =
     MAPS.food.spawn.y*TILE;
 
-
   player.direction =
     "up";
 
-
   player.moving =
     false;
-
 
   camera.x =
     player.x -
     canvas.width/2;
 
-
   camera.y =
     player.y -
     canvas.height/2;
 
-
   clampCamera();
-
 
   resetStoryNPCs();
 
+  configureChapterCard(
+    1,
+    "武林の夜"
+  );
+
+  setChapterLabel(
+    "第一章",
+    "武林の夜"
+  );
 
   saveStory();
 
-
   showChapterCard();
-
 
   setTimeout(
     storyOpening,
@@ -1296,30 +1368,26 @@ function resetStoryNPCs(){
   const xiaoyu =
     STORY_NPCS.xiaoyu;
 
+  xiaoyu.map =
+    "food";
 
   xiaoyu.x =
     24*TILE;
 
-
   xiaoyu.y =
     16*TILE;
-
 
   xiaoyu.direction =
     "down";
 
-
   xiaoyu.visible =
     false;
-
 
   xiaoyu.marker =
     true;
 
-
   xiaoyu.storyInteract =
     true;
-
 
   xiaoyu.storyMoving =
     false;
@@ -1328,56 +1396,59 @@ function resetStoryNPCs(){
   const chen =
     STORY_NPCS.uncleChen;
 
+  chen.map =
+    "food";
 
   chen.x =
     17*TILE;
 
-
   chen.y =
     12*TILE;
-
 
   chen.direction =
     "right";
 
-
   chen.visible =
     false;
-
 
   chen.marker =
     false;
 
-
   chen.storyInteract =
+    false;
+
+  chen.storyMoving =
     false;
 
 
   const lady =
     STORY_NPCS.whiteLady;
 
+  lady.map =
+    "food";
+
+  lady.name =
+    "？？？";
 
   lady.x =
     37*TILE;
 
-
   lady.y =
     19*TILE;
-
 
   lady.direction =
     "left";
 
-
   lady.visible =
     false;
-
 
   lady.marker =
     false;
 
-
   lady.storyInteract =
+    false;
+
+  lady.storyMoving =
     false;
 
 }
@@ -1409,12 +1480,8 @@ function showStoryNPC(id){
   const npc =
     STORY_NPCS[id];
 
-
   if(npc){
-
-    npc.visible =
-      true;
-
+    npc.visible = true;
   }
 
 }
@@ -1425,12 +1492,8 @@ function hideStoryNPC(id){
   const npc =
     STORY_NPCS[id];
 
-
   if(npc){
-
-    npc.visible =
-      false;
-
+    npc.visible = false;
   }
 
 }
@@ -1451,16 +1514,12 @@ function(time){
     time
   );
 
-
   if(
     STORY.mode !==
     "story"
   ){
-
     return;
-
   }
-
 
   for(
     const npc
@@ -1473,11 +1532,8 @@ function(time){
       !npc.visible ||
       npc.map !== currentMapId
     ){
-
       continue;
-
     }
-
 
     const x =
       Math.floor(
@@ -1486,7 +1542,6 @@ function(time){
         5
       );
 
-
     const y =
       Math.floor(
         npc.y -
@@ -1494,20 +1549,13 @@ function(time){
         3
       );
 
-
     drawPerson(
-
       x,
       y,
-
       npc,
-
       !!npc.storyMoving,
-
       time
-
     );
-
 
     if(
       npc.marker &&
@@ -1519,40 +1567,28 @@ function(time){
           time*5
         )*2;
 
-
       ctx.save();
-
 
       ctx.fillStyle =
         "#f4d06f";
 
-
       ctx.font =
         "bold 20px sans-serif";
-
 
       ctx.textAlign =
         "center";
 
-
       ctx.shadowColor =
         "rgba(0,0,0,.8)";
-
 
       ctx.shadowBlur =
         4;
 
-
       ctx.fillText(
-
         "!",
-
         x+11,
-
         y-9+bounce
-
       );
-
 
       ctx.restore();
 
@@ -1573,29 +1609,22 @@ function getNearbyStoryNPC(){
     STORY.mode !==
     "story"
   ){
-
     return null;
-
   }
-
 
   const px =
     player.x +
     player.width/2;
 
-
   const py =
     player.y +
     player.height/2;
 
-
   let nearest =
     null;
 
-
   let best =
     62;
-
 
   for(
     const npc
@@ -1609,21 +1638,14 @@ function getNearbyStoryNPC(){
       !npc.storyInteract ||
       npc.map !== currentMapId
     ){
-
       continue;
-
     }
-
 
     const distance =
       Math.hypot(
-
         npc.x+11-px,
-
         npc.y+14-py
-
       );
-
 
     if(
       distance <
@@ -1633,14 +1655,12 @@ function getNearbyStoryNPC(){
       best =
         distance;
 
-
       nearest =
         npc;
 
     }
 
   }
-
 
   return nearest;
 
@@ -1659,6 +1679,13 @@ interact =
 function(){
 
   if(
+    STORY.mode === "story" &&
+    STORY.choiceOpen
+  ){
+    return;
+  }
+
+  if(
     STORY.mode ===
     "story"
   ){
@@ -1666,20 +1693,17 @@ function(){
     const npc =
       getNearbyStoryNPC();
 
-
     if(npc){
 
       interactStoryNPC(
         npc
       );
 
-
       return;
 
     }
 
   }
-
 
   STORY_originalInteract();
 
@@ -1698,23 +1722,18 @@ updateInteractionHint =
 function(){
 
   if(
-    STORY.mode ===
-      "story" &&
-
+    STORY.mode === "story" &&
     !dialogue.active &&
-
     !STORY.choiceOpen
   ){
 
     const npc =
       getNearbyStoryNPC();
 
-
     if(npc){
 
       interactionText.textContent =
         `${npc.name}に話す`;
-
 
       interactionHint
         .classList
@@ -1722,13 +1741,11 @@ function(){
           "hidden"
         );
 
-
       return;
 
     }
 
   }
-
 
   STORY_originalUpdateInteractionHint();
 
@@ -1742,11 +1759,9 @@ function(){
 function interactStoryNPC(npc){
 
   if(
-    npc.id ===
-      "xiaoyu" &&
-
-    STORY.step ===
-      1
+    STORY.chapter === 1 &&
+    npc.id === "xiaoyu" &&
+    STORY.step === 1
   ){
 
     beginXiaoyuMeeting();
@@ -1776,23 +1791,18 @@ function storyDialogueSequence(
       onEnd();
     }
 
-
     return;
 
   }
 
-
   STORY.sequence =
     sequence;
-
 
   STORY.sequenceIndex =
     0;
 
-
   const first =
     sequence[0];
-
 
   const npc = {
 
@@ -1821,23 +1831,18 @@ function storyDialogueSequence(
 
   };
 
-
   dialogue.active =
     true;
-
 
   dialogue.npc =
     npc;
 
-
   dialogue.index =
     0;
-
 
   renderStoryDialogueLine(
     first
   );
-
 
   dialogueBox
     .classList
@@ -1853,19 +1858,14 @@ function renderStoryDialogueLine(line){
   speakerName.textContent =
     line.speaker || "";
 
-
   dialogueText.textContent =
     line.text || "";
 
-
   showNPCPortrait(
-
     line.portrait ||
     "student",
-
     line.expression ||
     "normal"
-
   );
 
 }
@@ -1894,9 +1894,7 @@ function(){
 
   }
 
-
   STORY.sequenceIndex++;
-
 
   if(
     STORY.sequenceIndex >=
@@ -1906,36 +1904,26 @@ function(){
     const callback =
       dialogue.npc.storyOnEnd;
 
-
     closeDialogue();
-
 
     STORY.sequence =
       null;
 
-
     STORY.sequenceIndex =
       0;
 
-
     if(callback){
-
       callback();
-
     }
-
 
     return;
 
   }
 
-
   renderStoryDialogueLine(
-
     STORY.sequence[
       STORY.sequenceIndex
     ]
-
   );
 
 };
@@ -1950,16 +1938,13 @@ function storyChoice(choices){
   STORY.choiceOpen =
     true;
 
-
   const holder =
     document.getElementById(
       "storyChoices"
     );
 
-
   holder.innerHTML =
     "";
-
 
   for(
     const choice
@@ -1971,10 +1956,8 @@ function storyChoice(choices){
         "button"
       );
 
-
     button.className =
       "story-choice";
-
 
     button.innerHTML = `
 
@@ -1986,7 +1969,6 @@ function storyChoice(choices){
 
     `;
 
-
     button.addEventListener(
 
       "click",
@@ -1996,33 +1978,27 @@ function storyChoice(choices){
         STORY.choiceOpen =
           false;
 
-
         holder
           .classList
           .add(
             "hidden"
           );
 
-
         if(
           choice.action
         ){
-
           choice.action();
-
         }
 
       }
 
     );
 
-
     holder.appendChild(
       button
     );
 
   }
-
 
   holder
     .classList
@@ -2034,6 +2010,7 @@ function storyChoice(choices){
 
 
 // ==========================================================
+// CHAPTER 1
 // OPENING
 // ==========================================================
 
@@ -2042,7 +2019,6 @@ function storyOpening(){
   setStoryObjective(
     "武林夜市を歩いてみよう"
   );
-
 
   storyDialogueSequence(
 
@@ -2083,16 +2059,13 @@ function storyOpening(){
       STORY.step =
         1;
 
-
       showStoryNPC(
         "xiaoyu"
       );
 
-
       setStoryObjective(
         "「！」のついた女の子に話しかけよう"
       );
-
 
       saveStory();
 
@@ -2104,7 +2077,8 @@ function storyOpening(){
 
 
 // ==========================================================
-// XIAOYU MEETING
+// CHAPTER 1
+// XIAOYU
 // ==========================================================
 
 function beginXiaoyuMeeting(){
@@ -2112,10 +2086,8 @@ function beginXiaoyuMeeting(){
   STORY_NPCS.xiaoyu.marker =
     false;
 
-
   STORY_NPCS.xiaoyu.storyInteract =
     false;
-
 
   storyDialogueSequence(
 
@@ -2151,10 +2123,6 @@ function beginXiaoyuMeeting(){
 }
 
 
-// ==========================================================
-// FIRST CHOICE
-// ==========================================================
-
 function showXiaoyuChoice(){
 
   storyChoice([
@@ -2169,7 +2137,6 @@ function showXiaoyuChoice(){
 
         STORY.flags.reason =
           "study";
-
 
         storyDialogueSequence(
 
@@ -2218,7 +2185,6 @@ function showXiaoyuChoice(){
         STORY.flags.reason =
           "travel";
 
-
         storyDialogueSequence(
 
           [
@@ -2266,7 +2232,6 @@ function showXiaoyuChoice(){
         STORY.flags.reason =
           "walk";
 
-
         storyDialogueSequence(
 
           [
@@ -2307,18 +2272,12 @@ function showXiaoyuChoice(){
 }
 
 
-// ==========================================================
-// START PARTY
-// ==========================================================
-
 function finishXiaoyuIntroduction(){
 
   STORY.step =
     2;
 
-
   saveStory();
-
 
   storyDialogueSequence(
 
@@ -2362,7 +2321,7 @@ function finishXiaoyuIntroduction(){
 
 
 // ==========================================================
-// PARTY SYSTEM
+// PARTY START
 // ==========================================================
 
 function startXiaoyuParty(){
@@ -2370,61 +2329,44 @@ function startXiaoyuParty(){
   STORY.step =
     3;
 
-
   STORY.partyActive =
     true;
 
+  STORY.partyType =
+    "xiaoyu";
 
   STORY.playerTrail =
     [];
 
-
-  /*
-    小雨を主人公の少し後ろへ配置。
-
-    ここから小雨自身が
-    「目的地へ歩く」のではなく、
-
-    主人公が実際に通った場所を
-    後から再生する。
-  */
-
   STORY_NPCS.xiaoyu.x =
     player.x;
-
 
   STORY_NPCS.xiaoyu.y =
     player.y +
     TILE;
 
-
   STORY_NPCS.xiaoyu.direction =
     player.direction;
-
 
   STORY_NPCS.xiaoyu.visible =
     true;
 
-
   STORY_NPCS.xiaoyu.marker =
     false;
-
 
   STORY_NPCS.xiaoyu.storyInteract =
     false;
 
-
   STORY_NPCS.xiaoyu.storyMoving =
     false;
 
-
-  showPartyStatus();
-
+  showPartyStatus(
+    "同行中：林小雨"
+  );
 
   setStoryObjective(
     "小雨と一緒に焼烤屋台へ行こう"
   );
-
 
   saveStory();
 
@@ -2432,207 +2374,201 @@ function startXiaoyuParty(){
 
 
 // ==========================================================
-// PLAYER TRAIL
+// PARTY TRAIL SYSTEM
 // ==========================================================
-
-/*
-==========================================================
- 同行システム
-
- 小雨にAIで道を探させない。
-
- 主人公の過去座標を保存して、
- 少し前の主人公の位置を
- 小雨がそのまま通る。
-
- これなら障害物に引っ掛からない。
-==========================================================
-*/
 
 function updateStoryParty(){
 
   if(
     STORY.mode !== "story" ||
-    !STORY.partyActive ||
-    currentMapId !== "food"
+    !STORY.partyActive
   ){
-
     return;
-
   }
-
-
-  const xiaoyu =
-    STORY_NPCS.xiaoyu;
-
-
-  /*
-    主人公が実際に移動したときだけ
-    履歴を追加。
-  */
 
   const last =
     STORY.playerTrail[
       STORY.playerTrail.length-1
     ];
 
-
   const movedEnough =
     !last ||
-
     Math.hypot(
       player.x-last.x,
       player.y-last.y
     ) > 3;
-
 
   if(movedEnough){
 
     STORY.playerTrail.push({
 
       x:player.x,
-
       y:player.y,
-
       direction:
-        player.direction
+        player.direction,
+      map:
+        currentMapId
 
     });
 
   }
 
-
-  /*
-    履歴が増えすぎないようにする。
-  */
-
   if(
     STORY.playerTrail.length >
-    100
+    140
   ){
-
     STORY.playerTrail.shift();
-
   }
 
 
-  /*
-    12履歴分ほど後ろを歩く。
+  // ----------------------------------------------------------
+  // 小雨
+  // ----------------------------------------------------------
 
-    もっと距離を離したければ
-    12 → 16 などに変更可能。
-  */
+  const xiaoyu =
+    STORY_NPCS.xiaoyu;
 
-  const delay =
+  const xiaoyuDelay =
     12;
 
-
   if(
-    STORY.playerTrail.length <=
-    delay
+    STORY.playerTrail.length >
+    xiaoyuDelay
   ){
 
-    xiaoyu.storyMoving =
-      false;
+    const target =
+      STORY.playerTrail[
+        STORY.playerTrail.length -
+        xiaoyuDelay
+      ];
 
+    if(
+      target.map ===
+      currentMapId
+    ){
 
-    return;
+      const oldX =
+        xiaoyu.x;
+
+      const oldY =
+        xiaoyu.y;
+
+      xiaoyu.map =
+        currentMapId;
+
+      xiaoyu.x =
+        target.x;
+
+      xiaoyu.y =
+        target.y;
+
+      xiaoyu.direction =
+        target.direction;
+
+      xiaoyu.storyMoving =
+        Math.hypot(
+          xiaoyu.x-oldX,
+          xiaoyu.y-oldY
+        ) > 1;
+
+    }
 
   }
 
 
-  const target =
-    STORY.playerTrail[
-      STORY.playerTrail.length -
-      delay
-    ];
+  // ----------------------------------------------------------
+  // 白姑娘
+  // 三人同行になった場合のみ
+  // ----------------------------------------------------------
 
+  if(
+    STORY.partyType ===
+    "trio"
+  ){
 
-  const oldX =
-    xiaoyu.x;
+    const lady =
+      STORY_NPCS.whiteLady;
 
+    const ladyDelay =
+      24;
 
-  const oldY =
-    xiaoyu.y;
+    if(
+      STORY.playerTrail.length >
+      ladyDelay
+    ){
 
+      const target =
+        STORY.playerTrail[
+          STORY.playerTrail.length -
+          ladyDelay
+        ];
 
-  /*
-    目的地点へ直接スナップ。
+      if(
+        target.map ===
+        currentMapId
+      ){
 
-    これは「テレポート」ではなく、
-    主人公の履歴が数px刻みなので
-    見た目では普通に歩いて見える。
-  */
+        const oldX =
+          lady.x;
 
-  xiaoyu.x =
-    target.x;
+        const oldY =
+          lady.y;
 
+        lady.map =
+          currentMapId;
 
-  xiaoyu.y =
-    target.y;
+        lady.x =
+          target.x;
 
+        lady.y =
+          target.y;
 
-  xiaoyu.direction =
-    target.direction;
+        lady.direction =
+          target.direction;
 
+        lady.storyMoving =
+          Math.hypot(
+            lady.x-oldX,
+            lady.y-oldY
+          ) > 1;
 
-  xiaoyu.storyMoving =
+      }
 
-    Math.hypot(
-      xiaoyu.x-oldX,
-      xiaoyu.y-oldY
-    ) > 1;
+    }
 
+  }
 
-  /*
-    古すぎる履歴は捨てる。
-  */
 
   if(
     STORY.playerTrail.length >
-    delay+25
+    60
   ){
-
     STORY.playerTrail.shift();
-
   }
 
 }
 
 
 // ==========================================================
-// STORY EVENT UPDATE
+// STORY UPDATE
 // ==========================================================
 
 function updateStoryEvents(){
 
   if(
-    STORY.mode !== "story"
+    STORY.mode !==
+    "story"
   ){
-
     return;
-
   }
-
 
   updateStoryParty();
 
 
-  /*
-    STEP 3
-
-    小雨同行中。
-
-    焼烤屋台周辺に主人公が
-    入ったらイベントを開始する。
-
-    「小雨が目的地に到着したか」は
-    一切判定しない。
-
-    主人公だけを見る。
-  */
+  // 第一章 焼烤到着
 
   if(
+    STORY.chapter === 1 &&
     STORY.step === 3 &&
     STORY.partyActive &&
     !STORY.stallTriggered &&
@@ -2645,37 +2581,41 @@ function updateStoryEvents(){
 
   }
 
+
+  // 第二章
+  // 主人公＋小雨で歩き始めてから
+  // 白衣の女を再び発見
+
+  if(
+    STORY.chapter === 2 &&
+    STORY.step === 3 &&
+    STORY.partyActive &&
+    !STORY.whiteEncounterTriggered &&
+    currentMapId === "food" &&
+    !dialogue.active &&
+    !STORY.choiceOpen
+  ){
+
+    checkSecondWhiteEncounter();
+
+  }
+
 }
 
 
 // ==========================================================
-// STALL ARRIVAL
+// FIRST CHAPTER STALL ARRIVAL
 // ==========================================================
 
 function checkStallArrival(){
-
-  /*
-    焼烤屋台はマップ上の
-    x=13, y=10付近。
-
-    プレイヤーが屋台そのものに
-    ぶつかる必要はなく、
-
-    前の通路に来れば発火する。
-
-    広めのエリアにして
-    「ピンポイント判定」を避ける。
-  */
 
   const px =
     player.x /
     TILE;
 
-
   const py =
     player.y /
     TILE;
-
 
   const inside =
 
@@ -2685,99 +2625,64 @@ function checkStallArrival(){
     py >= 12 &&
     py <= 18;
 
-
   if(!inside){
-
     return;
-
   }
-
 
   STORY.stallTriggered =
     true;
-
 
   beginStallArrival();
 
 }
 
 
-// ==========================================================
-// ARRIVE AT STALL
-// ==========================================================
-
 function beginStallArrival(){
 
   STORY.partyActive =
     false;
 
+  STORY.partyType =
+    null;
 
   STORY.playerTrail =
     [];
 
-
   hidePartyStatus();
-
 
   STORY.step =
     4;
 
-
-  /*
-    ここが今回のポイント。
-
-    到着したら小雨を
-    必ず屋台前へ配置する。
-
-    小雨自身の移動成功を
-    待つ必要がない。
-  */
-
   STORY_NPCS.xiaoyu.x =
     19*TILE;
-
 
   STORY_NPCS.xiaoyu.y =
     15*TILE;
 
-
   STORY_NPCS.xiaoyu.direction =
     "left";
-
 
   STORY_NPCS.xiaoyu.storyMoving =
     false;
 
-
   STORY_NPCS.xiaoyu.visible =
     true;
-
 
   showStoryNPC(
     "uncleChen"
   );
 
-
   STORY_NPCS.uncleChen.marker =
     false;
 
-
   STORY_NPCS.uncleChen.storyInteract =
     false;
-
 
   setStoryObjective(
     "陈叔の焼烤屋台"
   );
 
-
   saveStory();
-
-
-  /*
-    Eを押させず、
-    到着した瞬間にイベント開始。
-  */
 
   storyDialogueSequence(
 
@@ -2842,23 +2747,8 @@ function beginStallArrival(){
 
 
 // ==========================================================
-// HOOK INTO EXISTING GAME LOOP
+// GAME LOOP HOOK
 // ==========================================================
-
-/*
-  game.jsでは毎フレーム
-
-  updatePlayer()
-  updateNPCs()
-  updateCamera()
-  ...
-
-  と実行される。
-
-  updateNPCsそのものを書き換えず、
-  元の処理が終わったあとだけ
-  story処理を追加する。
-*/
 
 const STORY_baseUpdateNPCs =
   updateNPCs;
@@ -2870,7 +2760,6 @@ function(dt){
   STORY_baseUpdateNPCs(
     dt
   );
-
 
   updateStoryEvents();
 
@@ -2895,7 +2784,6 @@ function showFoodChoice(){
 
         STORY.flags.order =
           "kaochuan";
-
 
         storyDialogueSequence(
 
@@ -2936,7 +2824,6 @@ function showFoodChoice(){
 
         STORY.flags.order =
           "recommend";
-
 
         storyDialogueSequence(
 
@@ -2985,7 +2872,6 @@ function showFoodChoice(){
         STORY.flags.order =
           "notSpicy";
 
-
         storyDialogueSequence(
 
           [
@@ -3028,14 +2914,11 @@ function finishFoodScene(){
   STORY.step =
     5;
 
-
   saveStory();
-
 
   setStoryObjective(
     "小雨と夜市を楽しもう"
   );
-
 
   storyDialogueSequence(
 
@@ -3093,7 +2976,7 @@ function finishFoodScene(){
 
 
 // ==========================================================
-// WHITE LADY
+// CHAPTER 1 WHITE LADY
 // ==========================================================
 
 function beginWhiteLadyScene(){
@@ -3101,16 +2984,13 @@ function beginWhiteLadyScene(){
   STORY.step =
     6;
 
-
   setStoryObjective(
     "……"
   );
 
-
   showStoryNPC(
     "whiteLady"
   );
-
 
   setTimeout(
 
@@ -3156,10 +3036,6 @@ function beginWhiteLadyScene(){
 }
 
 
-// ==========================================================
-// WHITE LADY MOMENT
-// ==========================================================
-
 function whiteLadyMoment(){
 
   storyDialogueSequence(
@@ -3180,7 +3056,6 @@ function whiteLadyMoment(){
       hideStoryNPC(
         "whiteLady"
       );
-
 
       setTimeout(
 
@@ -3230,10 +3105,6 @@ function whiteLadyMoment(){
 }
 
 
-// ==========================================================
-// FINAL CHOICE
-// ==========================================================
-
 function showFinalChoice(){
 
   storyChoice([
@@ -3247,6 +3118,9 @@ function showFinalChoice(){
         "刚才那里有一个穿白衣服的女人。",
 
       action(){
+
+        STORY.flags.toldXiaoyu =
+          true;
 
         storyDialogueSequence(
 
@@ -3294,6 +3168,9 @@ function showFinalChoice(){
 
       action(){
 
+        STORY.flags.toldXiaoyu =
+          false;
+
         storyDialogueSequence(
 
           [
@@ -3328,7 +3205,7 @@ function showFinalChoice(){
 
 
 // ==========================================================
-// CHAPTER END
+// CHAPTER 1 END
 // ==========================================================
 
 function finishChapterOne(){
@@ -3336,29 +3213,25 @@ function finishChapterOne(){
   STORY.step =
     7;
 
-
   STORY.chapterComplete =
     true;
-
 
   STORY.flags.chapter1 =
     true;
 
-
   STORY.partyActive =
     false;
 
+  STORY.partyType =
+    null;
 
   hidePartyStatus();
 
-
   saveStory();
-
 
   setStoryObjective(
     "第一章　完"
   );
-
 
   storyDialogueSequence(
 
@@ -3387,29 +3260,29 @@ function finishChapterOne(){
 
     ],
 
-    showChapterEnd
+    showChapterOneEnd
 
   );
 
 }
 
 
-// ==========================================================
-// END CARD
-// ==========================================================
+function showChapterOneEnd(){
 
-function showChapterEnd(){
+  configureEndCard(
+    1,
+    "第一章　完",
+    "―― 武林の夜は、まだ続いている。"
+  );
 
   const end =
     document.getElementById(
       "storyChapterEnd"
     );
 
-
   end.classList.add(
     "show"
   );
-
 
   setTimeout(
 
@@ -3419,14 +3292,1419 @@ function showChapterEnd(){
         "show"
       );
 
-
-      setStoryObjective(
-        "第一章クリア"
+      setTimeout(
+        startChapterTwo,
+        700
       );
 
     },
 
-    3000
+    2600
+
+  );
+
+}
+
+
+// ==========================================================
+// ==========================================================
+// CHAPTER 2
+// 「白衣の女」
+// ==========================================================
+// ==========================================================
+
+function startChapterTwo(){
+
+  STORY.chapter =
+    2;
+
+  STORY.step =
+    0;
+
+  STORY.chapterComplete =
+    false;
+
+  STORY.partyActive =
+    false;
+
+  STORY.partyType =
+    null;
+
+  STORY.playerTrail =
+    [];
+
+  STORY.whiteEncounterTriggered =
+    false;
+
+  STORY.chapter2EventTriggered =
+    false;
+
+  STORY.trioStarted =
+    false;
+
+  hidePartyStatus();
+
+  hideAllStoryNPCs();
+
+  resetStoryNPCs();
+
+  currentMapId =
+    "food";
+
+  player.x =
+    26*TILE;
+
+  player.y =
+    20*TILE;
+
+  player.direction =
+    "up";
+
+  player.moving =
+    false;
+
+  STORY_NPCS.xiaoyu.x =
+    24*TILE;
+
+  STORY_NPCS.xiaoyu.y =
+    20*TILE;
+
+  STORY_NPCS.xiaoyu.direction =
+    "right";
+
+  STORY_NPCS.xiaoyu.visible =
+    true;
+
+  STORY_NPCS.xiaoyu.marker =
+    false;
+
+  STORY_NPCS.xiaoyu.storyInteract =
+    false;
+
+
+  STORY_NPCS.uncleChen.x =
+    17*TILE;
+
+  STORY_NPCS.uncleChen.y =
+    12*TILE;
+
+  STORY_NPCS.uncleChen.visible =
+    true;
+
+
+  camera.x =
+    player.x -
+    canvas.width/2;
+
+  camera.y =
+    player.y -
+    canvas.height/2;
+
+  clampCamera();
+
+
+  setChapterLabel(
+    "第二章",
+    "白衣の女"
+  );
+
+  configureChapterCard(
+    2,
+    "白衣の女"
+  );
+
+  saveStory();
+
+  showChapterCard();
+
+  setTimeout(
+    chapterTwoOpening,
+    1400
+  );
+
+}
+
+
+// ==========================================================
+// CHAPTER 2 OPENING
+// ==========================================================
+
+function chapterTwoOpening(){
+
+  setStoryObjective(
+    "小雨と再び武林夜市へ"
+  );
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"翌日の夜。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"あなたは昨日と同じ武林の夜市に来ていた。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"提灯も、屋台も、人混みも昨日と変わらない。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"你还真的来了。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"看来你挺喜欢这里的嘛。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"对了……昨天你说的那个女人。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"穿白衣服的那个。"
+      }
+
+    ],
+
+    chapterTwoWhiteTalk
+
+  );
+
+}
+
+
+// ==========================================================
+// DID PLAYER TELL XIAOYU?
+// ==========================================================
+
+function chapterTwoWhiteTalk(){
+
+  if(
+    STORY.flags.toldXiaoyu ===
+    false
+  ){
+
+    storyDialogueSequence(
+
+      [
+
+        {
+          speaker:"林小雨",
+          portrait:"xiaoyu",
+          expression:"normal",
+          text:"昨天回去以后，我总觉得你好像看到了什么。"
+        },
+
+        {
+          speaker:"林小雨",
+          portrait:"xiaoyu",
+          expression:"smile",
+          text:"算了，可能是我想多了。"
+        }
+
+      ],
+
+      chapterTwoChenRumor
+
+    );
+
+    return;
+
+  }
+
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"你不会真的碰到鬼了吧？"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"laugh",
+        text:"哈哈，开玩笑的。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"不过……我刚才问了陈叔。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"他说最近好像也有人见过。"
+      }
+
+    ],
+
+    chapterTwoChenRumor
+
+  );
+
+}
+
+
+// ==========================================================
+// CHEN RUMOR
+// ==========================================================
+
+function chapterTwoChenRumor(){
+
+  setStoryObjective(
+    "陈叔から話を聞こう"
+  );
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"陈叔",
+        portrait:"uncleChen",
+        expression:"normal",
+        text:"白衣服的女人？"
+      },
+
+      {
+        speaker:"陈叔",
+        portrait:"uncleChen",
+        expression:"normal",
+        text:"……最近，好像有人也说见过。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"surprised",
+        text:"真的？"
+      },
+
+      {
+        speaker:"陈叔",
+        portrait:"uncleChen",
+        expression:"normal",
+        text:"有人说她一个人站在人群里，也不买东西。"
+      },
+
+      {
+        speaker:"陈叔",
+        portrait:"uncleChen",
+        expression:"normal",
+        text:"一转眼，人就不见了。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"surprised",
+        text:"……听起来还真的有点吓人。"
+      },
+
+      {
+        speaker:"陈叔",
+        portrait:"uncleChen",
+        expression:"laugh",
+        text:"哈哈！夜市嘛，什么传闻都有。"
+      },
+
+      {
+        speaker:"陈叔",
+        portrait:"uncleChen",
+        expression:"smile",
+        text:"别自己吓自己。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"也是。走吧。"
+      }
+
+    ],
+
+    startChapterTwoWalk
+
+  );
+
+}
+
+
+// ==========================================================
+// CHAPTER 2 WALK
+// ==========================================================
+
+function startChapterTwoWalk(){
+
+  STORY.step =
+    3;
+
+  STORY.partyActive =
+    true;
+
+  STORY.partyType =
+    "xiaoyu";
+
+  STORY.playerTrail =
+    [];
+
+  STORY_NPCS.xiaoyu.x =
+    player.x;
+
+  STORY_NPCS.xiaoyu.y =
+    player.y +
+    TILE;
+
+  STORY_NPCS.xiaoyu.map =
+    currentMapId;
+
+  STORY_NPCS.xiaoyu.visible =
+    true;
+
+  STORY_NPCS.uncleChen.visible =
+    false;
+
+  showPartyStatus(
+    "同行中：林小雨"
+  );
+
+  setStoryObjective(
+    "小雨と夜市を歩こう"
+  );
+
+  saveStory();
+
+}
+
+
+// ==========================================================
+// SECOND WHITE ENCOUNTER
+// ==========================================================
+
+function checkSecondWhiteEncounter(){
+
+  const px =
+    player.x /
+    TILE;
+
+  const py =
+    player.y /
+    TILE;
+
+  /*
+    第一章の焼烤とは反対側へ行くと発生。
+    小笼包・生煎側の通路。
+  */
+
+  const inside =
+
+    px >= 29 &&
+    px <= 39 &&
+
+    py >= 15 &&
+    py <= 25;
+
+  if(!inside){
+    return;
+  }
+
+  STORY.whiteEncounterTriggered =
+    true;
+
+  beginSecondWhiteEncounter();
+
+}
+
+
+// ==========================================================
+// PLAYER SEES HER AGAIN
+// ==========================================================
+
+function beginSecondWhiteEncounter(){
+
+  STORY.partyActive =
+    false;
+
+  STORY.partyType =
+    null;
+
+  STORY.playerTrail =
+    [];
+
+  hidePartyStatus();
+
+  STORY.step =
+    4;
+
+  STORY_NPCS.xiaoyu.x =
+    player.x -
+    TILE;
+
+  STORY_NPCS.xiaoyu.y =
+    player.y;
+
+  STORY_NPCS.xiaoyu.visible =
+    true;
+
+  STORY_NPCS.whiteLady.map =
+    "food";
+
+  STORY_NPCS.whiteLady.x =
+    37*TILE;
+
+  STORY_NPCS.whiteLady.y =
+    19*TILE;
+
+  STORY_NPCS.whiteLady.direction =
+    "left";
+
+  STORY_NPCS.whiteLady.visible =
+    true;
+
+  storyDarken();
+
+  setStoryObjective(
+    "……"
+  );
+
+  setTimeout(
+
+    ()=>{
+
+      storyDialogueSequence(
+
+        [
+
+          {
+            speaker:"杭州探索録",
+            portrait:"tourist",
+            expression:"normal",
+            text:"ふと、人混みの向こうに白いものが見えた。"
+          },
+
+          {
+            speaker:"杭州探索録",
+            portrait:"tourist",
+            expression:"normal",
+            text:"昨日と同じ、白い服。"
+          },
+
+          {
+            speaker:"杭州探索録",
+            portrait:"tourist",
+            expression:"normal",
+            text:"女性は人混みの中で立ち止まり、こちらを見ている。"
+          },
+
+          {
+            speaker:"？？？",
+            portrait:"whiteLady",
+            expression:"normal",
+            text:"…………"
+          }
+
+        ],
+
+        secondWhiteVanish
+
+      );
+
+    },
+
+    500
+
+  );
+
+}
+
+
+// ==========================================================
+// VANISH AGAIN
+// ==========================================================
+
+function secondWhiteVanish(){
+
+  hideStoryNPC(
+    "whiteLady"
+  );
+
+  storyUndarken();
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"目の前を、買い物袋を持った数人の客が横切った。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"ほんの数秒だった。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"人の流れが途切れたとき、そこにはもう誰もいなかった。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"怎么又停下来了？"
+      }
+
+    ],
+
+    showSecondWhiteChoice
+
+  );
+
+}
+
+
+// ==========================================================
+// SECOND WHITE CHOICE
+// ==========================================================
+
+function showSecondWhiteChoice(){
+
+  storyChoice([
+
+    {
+
+      jp:"またあの人だ",
+
+      cn:"又是那个女人。",
+
+      action(){
+
+        STORY.flags.secondSight =
+          "again";
+
+        storyDialogueSequence(
+
+          [
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"surprised",
+              text:"又是她？"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"normal",
+              text:"……在哪里？"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"normal",
+              text:"我什么都没看到。"
+            }
+
+          ],
+
+          beginThirdEncounter
+
+        );
+
+      }
+
+    },
+
+
+    {
+
+      jp:"今、こっちを見ていた",
+
+      cn:"她刚才在看我们。",
+
+      action(){
+
+        STORY.flags.secondSight =
+          "watching";
+
+        storyDialogueSequence(
+
+          [
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"surprised",
+              text:"看我们？"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"normal",
+              text:"你别吓我啊……"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"normal",
+              text:"那里明明没有人。"
+            }
+
+          ],
+
+          beginThirdEncounter
+
+        );
+
+      }
+
+    },
+
+
+    {
+
+      jp:"……やっぱり何でもない",
+
+      cn:"……还是没什么。",
+
+      action(){
+
+        STORY.flags.secondSight =
+          "silent";
+
+        storyDialogueSequence(
+
+          [
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"normal",
+              text:"……你今天真的有点奇怪。"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"smile",
+              text:"走吧。"
+            }
+
+          ],
+
+          beginThirdEncounter
+
+        );
+
+      }
+
+    }
+
+  ]);
+
+}
+
+
+// ==========================================================
+// XIAOYU SEES HER
+// ==========================================================
+
+function beginThirdEncounter(){
+
+  STORY.step =
+    5;
+
+  setStoryObjective(
+    "人通りの少ない場所へ"
+  );
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"二人は少し人通りの少ない場所へ移動した。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"屋台の声が、さっきより遠く聞こえる。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"……等一下。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"surprised",
+        text:"你看。"
+      }
+
+    ],
+
+    showWhiteLadyToBoth
+
+  );
+
+}
+
+
+function showWhiteLadyToBoth(){
+
+  STORY_NPCS.whiteLady.x =
+    32*TILE;
+
+  STORY_NPCS.whiteLady.y =
+    22*TILE;
+
+  STORY_NPCS.whiteLady.direction =
+    "left";
+
+  STORY_NPCS.whiteLady.visible =
+    true;
+
+  storyDarken();
+
+  setTimeout(
+
+    ()=>{
+
+      storyDialogueSequence(
+
+        [
+
+          {
+            speaker:"林小雨",
+            portrait:"xiaoyu",
+            expression:"surprised",
+            text:"……是不是她？"
+          },
+
+          {
+            speaker:"杭州探索録",
+            portrait:"tourist",
+            expression:"normal",
+            text:"白い服の女性が、少し離れたところに立っている。"
+          },
+
+          {
+            speaker:"杭州探索録",
+            portrait:"tourist",
+            expression:"normal",
+            text:"今度は消えない。"
+          },
+
+          {
+            speaker:"林小雨",
+            portrait:"xiaoyu",
+            expression:"surprised",
+            text:"她为什么一直看着我们……？"
+          },
+
+          {
+            speaker:"杭州探索録",
+            portrait:"tourist",
+            expression:"normal",
+            text:"女性が、ゆっくりこちらへ近づいてくる。"
+          },
+
+          {
+            speaker:"林小雨",
+            portrait:"xiaoyu",
+            expression:"surprised",
+            text:"……"
+          },
+
+          {
+            speaker:"？？？",
+            portrait:"whiteLady",
+            expression:"normal",
+            text:"……不好意思。"
+          },
+
+          {
+            speaker:"林小雨",
+            portrait:"xiaoyu",
+            expression:"surprised",
+            text:"……啊？"
+          },
+
+          {
+            speaker:"？？？",
+            portrait:"whiteLady",
+            expression:"normal",
+            text:"那个……"
+          },
+
+          {
+            speaker:"？？？",
+            portrait:"whiteLady",
+            expression:"normal",
+            text:"这个，怎么吃？"
+          }
+
+        ],
+
+        whiteLadyFoodReveal
+
+      );
+
+    },
+
+    650
+
+  );
+
+}
+
+
+// ==========================================================
+// HORROR -> COMEDY
+// ==========================================================
+
+function whiteLadyFoodReveal(){
+
+  storyUndarken();
+
+  setStoryObjective(
+    "白い服の女性と話そう"
+  );
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"女性の手には、屋台で買ったばかりらしい食べ物が握られていた。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"surprised",
+        text:"……啊？"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"normal",
+        text:"我看大家都在吃，所以也买了一个。"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"normal",
+        text:"可是……不知道怎么吃。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"laugh",
+        text:"噗……"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"laugh",
+        text:"你刚才一直站在那里，就是因为这个？"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"smile",
+        text:"嗯。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"你吓死我们了。"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"surprised",
+        text:"我？"
+      }
+
+    ],
+
+    beginPaymentScene
+
+  );
+
+}
+
+
+// ==========================================================
+// MOBILE PAYMENT
+// ==========================================================
+
+function beginPaymentScene(){
+
+  STORY.step =
+    6;
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"算了，我再给你买一个吧。这个比较好吃。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"小雨は屋台のQRコードにスマートフォンを向けた。"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"surprised",
+        text:"……"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"surprised",
+        text:"你刚才……没有给他钱吧？"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"啊？"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"normal",
+        text:"那怎么买到的？"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"surprised",
+        text:"手机支付啊。"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"surprised",
+        text:"……手机？"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"laugh",
+        text:"你到底是哪个年代的人啊？"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"smile",
+        text:"……很奇怪吗？"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"laugh",
+        text:"非常奇怪。"
+      }
+
+    ],
+
+    beginWhiteLadyNameScene
+
+  );
+
+}
+
+
+// ==========================================================
+// NAME
+// ==========================================================
+
+function beginWhiteLadyNameScene(){
+
+  STORY.step =
+    7;
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"对了，我叫林小雨。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"你叫什么名字？"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"normal",
+        text:"……"
+      },
+
+      {
+        speaker:"？？？",
+        portrait:"whiteLady",
+        expression:"smile",
+        text:"叫我白姑娘就好。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"surprised",
+        text:"白姑娘？"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"这是名字吗？"
+      },
+
+      {
+        speaker:"白姑娘",
+        portrait:"whiteLady",
+        expression:"smile",
+        text:"嗯。这样就好。"
+      }
+
+    ],
+
+    startTrioParty
+
+  );
+
+}
+
+
+// ==========================================================
+// THREE-PERSON PARTY
+// ==========================================================
+
+function startTrioParty(){
+
+  STORY_NPCS.whiteLady.name =
+    "白姑娘";
+
+  STORY.step =
+    8;
+
+  STORY.partyActive =
+    true;
+
+  STORY.partyType =
+    "trio";
+
+  STORY.trioStarted =
+    true;
+
+  STORY.playerTrail =
+    [];
+
+  STORY_NPCS.xiaoyu.x =
+    player.x;
+
+  STORY_NPCS.xiaoyu.y =
+    player.y +
+    TILE;
+
+  STORY_NPCS.xiaoyu.map =
+    currentMapId;
+
+  STORY_NPCS.xiaoyu.visible =
+    true;
+
+
+  STORY_NPCS.whiteLady.x =
+    player.x;
+
+  STORY_NPCS.whiteLady.y =
+    player.y +
+    TILE*2;
+
+  STORY_NPCS.whiteLady.map =
+    currentMapId;
+
+  STORY_NPCS.whiteLady.visible =
+    true;
+
+  STORY_NPCS.whiteLady.storyMoving =
+    false;
+
+
+  showPartyStatus(
+    "同行中：林小雨・白姑娘"
+  );
+
+  setStoryObjective(
+    "三人で夜市を歩こう"
+  );
+
+  saveStory();
+
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"smile",
+        text:"那一起逛逛吧。"
+      },
+
+      {
+        speaker:"白姑娘",
+        portrait:"whiteLady",
+        expression:"surprised",
+        text:"我也可以吗？"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"laugh",
+        text:"当然可以。"
+      },
+
+      {
+        speaker:"白姑娘",
+        portrait:"whiteLady",
+        expression:"smile",
+        text:"……好。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"こうして、少し変わった三人の夜市歩きが始まった。"
+      }
+
+    ],
+
+    finishChapterTwo
+
+  );
+
+}
+
+
+// ==========================================================
+// CHAPTER 2 END
+// ==========================================================
+
+function finishChapterTwo(){
+
+  STORY.step =
+    9;
+
+  STORY.chapterComplete =
+    true;
+
+  STORY.flags.chapter2 =
+    true;
+
+  saveStory();
+
+  storyDialogueSequence(
+
+    [
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"白姑娘は、目に入るものすべてを珍しそうに眺めていた。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"スマートフォンも、屋台の灯りも、行き交う人々も。"
+      },
+
+      {
+        speaker:"杭州探索録",
+        portrait:"tourist",
+        expression:"normal",
+        text:"まるで、長いあいだこの街を見ていなかったかのように。"
+      },
+
+      {
+        speaker:"白姑娘",
+        portrait:"whiteLady",
+        expression:"smile",
+        text:"杭州……真的变了很多。"
+      },
+
+      {
+        speaker:"林小雨",
+        portrait:"xiaoyu",
+        expression:"normal",
+        text:"嗯？"
+      },
+
+      {
+        speaker:"白姑娘",
+        portrait:"whiteLady",
+        expression:"normal",
+        text:"……没什么。"
+      }
+
+    ],
+
+    showChapterTwoEnd
+
+  );
+
+}
+
+
+function showChapterTwoEnd(){
+
+  STORY.partyActive =
+    false;
+
+  STORY.partyType =
+    null;
+
+  STORY.playerTrail =
+    [];
+
+  hidePartyStatus();
+
+  setStoryObjective(
+    "第二章　完"
+  );
+
+  configureEndCard(
+    2,
+    "第二章　完",
+    "―― 白衣の女は、白姑娘と名乗った。"
+  );
+
+  const end =
+    document.getElementById(
+      "storyChapterEnd"
+    );
+
+  end.classList.add(
+    "show"
+  );
+
+  setTimeout(
+
+    ()=>{
+
+      end.classList.remove(
+        "show"
+      );
+
+      setStoryObjective(
+        "第二章クリア"
+      );
+
+    },
+
+    3200
 
   );
 
@@ -3441,36 +4719,26 @@ function initializeStoryMode(){
 
   loadStory();
 
-
   storyAddStyle();
 
-
   storyCreateDOM();
-
 
   document
     .getElementById(
       "exploreModeButton"
     )
     .addEventListener(
-
       "click",
-
       startExploreMode
-
     );
-
 
   document
     .getElementById(
       "storyModeButton"
     )
     .addEventListener(
-
       "click",
-
       startStoryMode
-
     );
 
 }
@@ -3480,5 +4748,5 @@ initializeStoryMode();
 
 
 console.log(
-  "杭州探索録 Story Mode Ver.2.2 / Party System loaded"
+  "杭州探索録 Story Mode Ver.3 / Chapter 1 + Chapter 2 loaded"
 );
