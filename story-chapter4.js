@@ -3,7 +3,7 @@
 /*
 ==========================================================
  杭州探索録
- CHAPTER 4 EXPANSION Ver.1.1
+ CHAPTER 4 EXPANSION Ver.1.2
 
  第四章「消える人」
 
@@ -12,12 +12,11 @@
  story-chapter3.js
  story-chapter4.js
 
- ★ Ver.1.1 修正
- ・showChapterThreeEnd() の上書きを廃止
- ・第三章終了フラグを毎フレーム監視
- ・第三章エンド後に第四章を自動開始
- ・storyDarken / storyUndarken に依存しない
- ・第三章以前には一切手を加えない
+ ★ Ver.1.2
+ ・Ver.1.1の正常動作ロジックを維持
+ ・杭州探索録（ナレーション）のみ日本語
+ ・その他の登場人物の発言はすべて中国語
+ ・第三章終了フラグを監視して第四章を自動開始
 ==========================================================
 */
 
@@ -30,8 +29,6 @@ const CH4 = {
 
   active:false,
 
-  // 第四章開始タイマーを
-  // 二重登録しないためのフラグ
   startScheduled:false,
 
   step:0,
@@ -54,18 +51,6 @@ const CH4 = {
 // ==========================================================
 // START WATCHER
 // ==========================================================
-
-/*
-  第三章側では終了時に
-
-  STORY.flags.chapter3 = true;
-  STORY.chapterComplete = true;
-
-  が設定される。
-
-  showChapterThreeEnd() 自体は触らず、
-  この状態だけを監視する。
-*/
 
 function watchChapterFourStart(){
 
@@ -108,12 +93,6 @@ function watchChapterFourStart(){
   CH4.startScheduled =
     true;
 
-
-  /*
-    第三章エンドカードが
-    約3.4秒表示されるため、
-    余裕を持って4.1秒待つ。
-  */
 
   setTimeout(
 
@@ -508,16 +487,8 @@ function startChapterFourFirstWalk(){
 
 function updateChapterFour(){
 
-  // ========================================================
-  // まず第三章終了を監視
-  // ========================================================
-
   watchChapterFourStart();
 
-
-  // ========================================================
-  // 第四章開始前なら終了
-  // ========================================================
 
   if(
     !CH4.active ||
@@ -535,11 +506,7 @@ function updateChapterFour(){
   }
 
 
-  // ========================================================
-  // STEP 1
-  // 陈叔の屋台
-  // ========================================================
-
+  // 陈叔
   if(
     CH4.step === 1 &&
     !CH4.chenTriggered &&
@@ -553,11 +520,7 @@ function updateChapterFour(){
   }
 
 
-  // ========================================================
-  // STEP 2
   // 最初の失踪の噂
-  // ========================================================
-
   if(
     CH4.step === 2 &&
     !CH4.rumorTriggered &&
@@ -571,11 +534,7 @@ function updateChapterFour(){
   }
 
 
-  // ========================================================
-  // STEP 3
   // 二つ目の噂
-  // ========================================================
-
   if(
     CH4.step === 3 &&
     !CH4.secondRumorTriggered &&
@@ -589,11 +548,7 @@ function updateChapterFour(){
   }
 
 
-  // ========================================================
-  // STEP 4
   // 青い影
-  // ========================================================
-
   if(
     CH4.step === 4 &&
     !CH4.blueClueTriggered &&
@@ -612,14 +567,6 @@ function updateChapterFour(){
 // ==========================================================
 // UPDATE HOOK
 // ==========================================================
-
-/*
-  story.js → chapter3.js の順に
-  updateStoryEvents がラップされている。
-
-  その最新版をここで保存し、
-  その後に第四章処理だけを追加する。
-*/
 
 const CH4_originalUpdateStoryEvents =
   updateStoryEvents;
@@ -649,12 +596,6 @@ function checkChapterFourChen(){
     player.y /
     TILE;
 
-
-  /*
-    焼烤屋台周辺。
-
-    第一章と同じ広めの判定。
-  */
 
   const inside =
 
@@ -1410,21 +1351,21 @@ function beginBlueClueScene(){
         speaker:"夜市の客",
         portrait:"tourist",
         expression:"normal",
-        text:"そういえば、昨日西湖の近くにいたんだけど……"
+        text:"对了，昨天晚上我在西湖附近……"
       },
 
       {
         speaker:"夜市の客",
         portrait:"student",
         expression:"normal",
-        text:"何かあったんですか？"
+        text:"怎么了？"
       },
 
       {
         speaker:"夜市の客",
         portrait:"tourist",
         expression:"normal",
-        text:"湖の近くで、変なものを見たんだ。"
+        text:"我在湖边看见了一个奇怪的东西。"
       },
 
       {
@@ -1438,28 +1379,28 @@ function beginBlueClueScene(){
         speaker:"夜市の客",
         portrait:"tourist",
         expression:"normal",
-        text:"よく見えなかった。"
+        text:"我也没看清楚。"
       },
 
       {
         speaker:"夜市の客",
         portrait:"tourist",
         expression:"normal",
-        text:"水の近くを、何か大きなものが動いていた。"
+        text:"好像有个很大的东西在水边动。"
       },
 
       {
         speaker:"夜市の客",
         portrait:"student",
         expression:"surprised",
-        text:"大きなもの？"
+        text:"很大的东西？"
       },
 
       {
         speaker:"夜市の客",
         portrait:"tourist",
         expression:"normal",
-        text:"うん。青っぽく見えた。"
+        text:"嗯。看起来好像是青色的。"
       },
 
       {
@@ -1501,14 +1442,14 @@ function beginBlueClueScene(){
         speaker:"夜市の客",
         portrait:"tourist",
         expression:"normal",
-        text:"暗かったから、はっきりとは……"
+        text:"天太黑了，我也不太确定……"
       },
 
       {
         speaker:"夜市の客",
         portrait:"tourist",
         expression:"normal",
-        text:"でも、たぶん。"
+        text:"不过，我觉得应该是。"
       },
 
       {
@@ -1720,14 +1661,14 @@ function whiteLadyLeaves(){
         speaker:"林小雨",
         portrait:"xiaoyu",
         expression:"normal",
-        text:"絶対に何か知ってるよね。"
+        text:"她肯定知道些什么。"
       },
 
       {
         speaker:"林小雨",
         portrait:"xiaoyu",
         expression:"normal",
-        text:"あんな白姑娘、初めて見た。"
+        text:"我还是第一次看到她这个样子。"
       }
 
     ],
@@ -1974,5 +1915,5 @@ function showChapterFourEnd(){
 
 
 console.log(
-  "杭州探索録 Chapter 4 Ver.1.1 / 消える人 loaded"
+  "杭州探索録 Chapter 4 Ver.1.2 / 消える人 loaded"
 );
