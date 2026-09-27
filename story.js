@@ -3,15 +3,18 @@
 /*
 ==========================================================
  杭州探索録
- STORY MODE Ver.2.1
+ STORY MODE Ver.2.2
 
  第一章「武林の夜」
 
- Ver.2.1
- ・小雨の移動をウェイポイント方式へ変更
- ・移動途中で止まる問題を修正
- ・最終地点到着を確実に判定
- ・到着後、陈叔イベントへ確実に移行
+ ★ Ver.2.2
+ ・小雨の自動経路移動を完全廃止
+ ・主人公の移動履歴を利用した同行システム
+ ・小雨が主人公の後ろをついてくる
+ ・主人公が屋台エリアへ入ると自動イベント
+ ・屋台到着時に小雨を所定位置へ配置
+ ・motion.js のNPC移動処理に依存しない
+ ・将来、白姑娘を2人目の同行者として追加可能
 
  portraits.js Ver.1 と併用
 ==========================================================
@@ -23,7 +26,7 @@
 // ==========================================================
 
 const STORY_SAVE_KEY =
-  "hangzhouStorySaveV21";
+  "hangzhouStorySaveV22";
 
 
 const STORY = {
@@ -44,36 +47,59 @@ const STORY = {
 
   sequenceIndex:0,
 
-  movingNPC:null,
+  chapterComplete:false,
 
-  chapterComplete:false
+  // 同行状態
+  partyActive:false,
+
+  // 主人公の過去位置
+  playerTrail:[],
+
+  // 屋台イベント発火済みか
+  stallTriggered:false
 
 };
 
 
+// ==========================================================
+// SAVE / LOAD
+// ==========================================================
+
 function saveStory(){
 
-  localStorage.setItem(
+  try{
 
-    STORY_SAVE_KEY,
+    localStorage.setItem(
 
-    JSON.stringify({
+      STORY_SAVE_KEY,
 
-      chapter:
-        STORY.chapter,
+      JSON.stringify({
 
-      step:
-        STORY.step,
+        chapter:
+          STORY.chapter,
 
-      flags:
-        STORY.flags,
+        step:
+          STORY.step,
 
-      chapterComplete:
-        STORY.chapterComplete
+        flags:
+          STORY.flags,
 
-    })
+        chapterComplete:
+          STORY.chapterComplete
 
-  );
+      })
+
+    );
+
+  }
+  catch(error){
+
+    console.warn(
+      "Story save failed",
+      error
+    );
+
+  }
 
 }
 
@@ -82,19 +108,19 @@ function loadStory(){
 
   try{
 
-    const data =
-      JSON.parse(
-
-        localStorage.getItem(
-          STORY_SAVE_KEY
-        )
-
+    const raw =
+      localStorage.getItem(
+        STORY_SAVE_KEY
       );
 
 
-    if(!data){
+    if(!raw){
       return;
     }
+
+
+    const data =
+      JSON.parse(raw);
 
 
     STORY.chapter =
@@ -180,10 +206,6 @@ const STORY_NPCS = {
 
     name:"陈叔",
 
-    /*
-      烧烤屋台付近。
-    */
-
     x:17*TILE,
     y:12*TILE,
 
@@ -199,9 +221,9 @@ const STORY_NPCS = {
 
     visible:false,
 
-    marker:true,
+    marker:false,
 
-    storyInteract:true,
+    storyInteract:false,
 
     storyMoving:false
 
@@ -223,7 +245,7 @@ const STORY_NPCS = {
     x:37*TILE,
     y:19*TILE,
 
-    color:"#e8e5df",
+    color:"#ece9e3",
 
     skin:"#efd0b5",
 
@@ -251,8 +273,7 @@ const STORY_NPCS = {
 // ==========================================================
 
 if(
-  typeof PORTRAITS !==
-  "undefined"
+  typeof PORTRAITS !== "undefined"
 ){
 
   PORTRAITS.whiteLady = {
@@ -288,468 +309,506 @@ function storyAddStyle(){
 
   style.textContent = `
 
-  #storyModeScreen{
+    #storyModeScreen{
 
-    position:fixed;
+      position:fixed;
 
-    inset:0;
+      inset:0;
 
-    z-index:9999;
+      z-index:9999;
 
-    display:flex;
+      display:flex;
 
-    align-items:center;
+      align-items:center;
 
-    justify-content:center;
+      justify-content:center;
 
-    background:
-      radial-gradient(
-        circle at 50% 40%,
-        rgba(81,52,42,.35),
-        rgba(8,10,15,.97) 65%
+      background:
+        radial-gradient(
+          circle at 50% 40%,
+          rgba(81,52,42,.35),
+          rgba(8,10,15,.97) 65%
+        );
+
+      font-family:
+        "Noto Sans JP",
+        sans-serif;
+
+    }
+
+
+    #storyModeScreen.hidden{
+      display:none;
+    }
+
+
+    .story-title-panel{
+
+      width:min(
+        760px,
+        calc(100vw - 40px)
       );
 
-    font-family:
-      "Noto Sans JP",
-      sans-serif;
+      padding:44px 48px;
 
-  }
+      box-sizing:border-box;
 
+      background:
+        rgba(18,20,27,.97);
 
-  #storyModeScreen.hidden{
-    display:none;
-  }
+      border:
+        1px solid #806748;
 
+      box-shadow:
+        0 20px 80px
+        rgba(0,0,0,.65);
 
-  .story-title-panel{
+      text-align:center;
 
-    width:min(
-      760px,
-      calc(100vw - 40px)
-    );
+    }
 
-    padding:
-      44px 48px;
 
-    box-sizing:
-      border-box;
+    .story-small{
 
-    background:
-      rgba(18,20,27,.97);
+      color:#b69a70;
 
-    border:
-      1px solid #806748;
+      font-size:13px;
 
-    box-shadow:
-      0 20px 80px
-      rgba(0,0,0,.65);
+      letter-spacing:.25em;
 
-    text-align:center;
+      margin-bottom:10px;
 
-  }
+    }
 
 
-  .story-small{
+    .story-main-title{
 
-    color:#b69a70;
+      color:#f3e5ca;
 
-    font-size:13px;
+      font-size:38px;
 
-    letter-spacing:.25em;
+      margin:0;
 
-    margin-bottom:10px;
+      letter-spacing:.08em;
 
-  }
+    }
 
 
-  .story-main-title{
+    .story-subtitle{
 
-    color:#f3e5ca;
+      color:#aaa39a;
 
-    font-size:38px;
+      margin:
+        10px 0 36px;
 
-    margin:0;
+    }
 
-    letter-spacing:.08em;
-
-  }
-
-
-  .story-subtitle{
-
-    color:#aaa39a;
-
-    margin:
-      10px 0 36px;
-
-  }
-
-
-  .story-mode-buttons{
-
-    display:grid;
-
-    grid-template-columns:
-      1fr 1fr;
-
-    gap:16px;
-
-  }
-
-
-  .story-mode-button{
-
-    cursor:pointer;
-
-    border:
-      1px solid #675842;
-
-    background:#25262c;
-
-    color:#eee5d5;
-
-    padding:
-      22px 18px;
-
-    min-height:112px;
-
-    transition:.15s;
-
-  }
-
-
-  .story-mode-button:hover{
-
-    transform:
-      translateY(-2px);
-
-    border-color:#c5a46d;
-
-    background:#303038;
-
-  }
-
-
-  .story-mode-button strong{
-
-    display:block;
-
-    font-size:20px;
-
-    margin-bottom:9px;
-
-  }
-
-
-  .story-mode-button span{
-
-    color:#aaa39a;
-
-    font-size:13px;
-
-    line-height:1.7;
-
-  }
-
-
-  #storyObjective{
-
-    position:fixed;
-
-    left:18px;
-
-    top:100px;
-
-    z-index:600;
-
-    width:280px;
-
-    box-sizing:border-box;
-
-    padding:14px 16px;
-
-    background:
-      rgba(15,18,24,.92);
-
-    border-left:
-      3px solid #c69d5e;
-
-    box-shadow:
-      0 8px 24px
-      rgba(0,0,0,.25);
-
-    color:#e9e2d5;
-
-    pointer-events:none;
-
-  }
-
-
-  #storyObjective.hidden{
-    display:none;
-  }
-
-
-  #storyObjective .chapter{
-
-    color:#c6a66d;
-
-    font-size:11px;
-
-    letter-spacing:.14em;
-
-    margin-bottom:5px;
-
-  }
-
-
-  #storyObjective .objective{
-
-    font-size:14px;
-
-    line-height:1.65;
-
-  }
-
-
-  #storyChoices{
-
-    position:fixed;
-
-    left:50%;
-
-    bottom:170px;
-
-    transform:
-      translateX(-50%);
-
-    z-index:9500;
-
-    width:min(
-      620px,
-      calc(100vw - 40px)
-    );
-
-    padding:12px;
-
-    box-sizing:border-box;
-
-    background:
-      rgba(13,15,21,.98);
-
-    border:
-      1px solid #806748;
-
-    box-shadow:
-      0 18px 60px
-      rgba(0,0,0,.55);
-
-  }
-
-
-  #storyChoices.hidden{
-    display:none;
-  }
-
-
-  .story-choice{
-
-    display:block;
-
-    width:100%;
-
-    text-align:left;
-
-    cursor:pointer;
-
-    margin:5px 0;
-
-    padding:
-      13px 15px;
-
-    color:#eee6d8;
-
-    background:#24262d;
-
-    border:
-      1px solid #44434a;
-
-    font-size:14px;
-
-  }
-
-
-  .story-choice:hover{
-
-    background:#393128;
-
-    border-color:#bd9b65;
-
-  }
-
-
-  .story-choice-cn{
-
-    display:block;
-
-    color:#e5c17e;
-
-    font-size:16px;
-
-    margin-top:4px;
-
-  }
-
-
-  #storyChapterCard{
-
-    position:fixed;
-
-    inset:0;
-
-    z-index:9200;
-
-    display:flex;
-
-    align-items:center;
-
-    justify-content:center;
-
-    pointer-events:none;
-
-    background:
-      rgba(5,7,10,.78);
-
-    opacity:0;
-
-    transition:
-      opacity .45s;
-
-  }
-
-
-  #storyChapterCard.show{
-    opacity:1;
-  }
-
-
-  #storyChapterCard .inner{
-
-    text-align:center;
-
-    color:white;
-
-  }
-
-
-  #storyChapterCard .number{
-
-    color:#c6a66d;
-
-    letter-spacing:.25em;
-
-    font-size:13px;
-
-  }
-
-
-  #storyChapterCard .title{
-
-    margin-top:8px;
-
-    font-size:34px;
-
-    letter-spacing:.12em;
-
-  }
-
-
-  #storyChapterEnd{
-
-    position:fixed;
-
-    inset:0;
-
-    z-index:9800;
-
-    display:flex;
-
-    align-items:center;
-
-    justify-content:center;
-
-    pointer-events:none;
-
-    opacity:0;
-
-    background:
-      rgba(5,7,10,.82);
-
-    transition:
-      opacity .7s;
-
-  }
-
-
-  #storyChapterEnd.show{
-    opacity:1;
-  }
-
-
-  #storyChapterEnd .inner{
-
-    text-align:center;
-
-    color:#eee6d8;
-
-  }
-
-
-  #storyChapterEnd .small{
-
-    color:#b99a68;
-
-    font-size:12px;
-
-    letter-spacing:.28em;
-
-  }
-
-
-  #storyChapterEnd .big{
-
-    font-size:34px;
-
-    margin-top:10px;
-
-    letter-spacing:.18em;
-
-  }
-
-
-  #storyChapterEnd .next{
-
-    color:#aaa39a;
-
-    font-size:13px;
-
-    margin-top:18px;
-
-  }
-
-
-  @media(max-width:700px){
 
     .story-mode-buttons{
-      grid-template-columns:1fr;
+
+      display:grid;
+
+      grid-template-columns:
+        1fr 1fr;
+
+      gap:16px;
+
+    }
+
+
+    .story-mode-button{
+
+      cursor:pointer;
+
+      border:
+        1px solid #675842;
+
+      background:#25262c;
+
+      color:#eee5d5;
+
+      padding:22px 18px;
+
+      min-height:112px;
+
+      transition:.15s;
+
+    }
+
+
+    .story-mode-button:hover{
+
+      transform:
+        translateY(-2px);
+
+      border-color:#c5a46d;
+
+      background:#303038;
+
+    }
+
+
+    .story-mode-button strong{
+
+      display:block;
+
+      font-size:20px;
+
+      margin-bottom:9px;
+
+    }
+
+
+    .story-mode-button span{
+
+      color:#aaa39a;
+
+      font-size:13px;
+
+      line-height:1.7;
+
     }
 
 
     #storyObjective{
-      width:220px;
+
+      position:fixed;
+
+      left:18px;
+
+      top:100px;
+
+      z-index:600;
+
+      width:290px;
+
+      box-sizing:border-box;
+
+      padding:14px 16px;
+
+      background:
+        rgba(15,18,24,.92);
+
+      border-left:
+        3px solid #c69d5e;
+
+      box-shadow:
+        0 8px 24px
+        rgba(0,0,0,.25);
+
+      color:#e9e2d5;
+
+      pointer-events:none;
+
     }
 
-  }
+
+    #storyObjective.hidden{
+      display:none;
+    }
+
+
+    #storyObjective .chapter{
+
+      color:#c6a66d;
+
+      font-size:11px;
+
+      letter-spacing:.14em;
+
+      margin-bottom:5px;
+
+    }
+
+
+    #storyObjective .objective{
+
+      font-size:14px;
+
+      line-height:1.65;
+
+    }
+
+
+    #storyChoices{
+
+      position:fixed;
+
+      left:50%;
+
+      bottom:170px;
+
+      transform:
+        translateX(-50%);
+
+      z-index:9500;
+
+      width:min(
+        620px,
+        calc(100vw - 40px)
+      );
+
+      padding:12px;
+
+      box-sizing:border-box;
+
+      background:
+        rgba(13,15,21,.98);
+
+      border:
+        1px solid #806748;
+
+      box-shadow:
+        0 18px 60px
+        rgba(0,0,0,.55);
+
+    }
+
+
+    #storyChoices.hidden{
+      display:none;
+    }
+
+
+    .story-choice{
+
+      display:block;
+
+      width:100%;
+
+      text-align:left;
+
+      cursor:pointer;
+
+      margin:5px 0;
+
+      padding:13px 15px;
+
+      color:#eee6d8;
+
+      background:#24262d;
+
+      border:
+        1px solid #44434a;
+
+      font-size:14px;
+
+    }
+
+
+    .story-choice:hover{
+
+      background:#393128;
+
+      border-color:#bd9b65;
+
+    }
+
+
+    .story-choice-cn{
+
+      display:block;
+
+      color:#e5c17e;
+
+      font-size:16px;
+
+      margin-top:4px;
+
+    }
+
+
+    #storyChapterCard{
+
+      position:fixed;
+
+      inset:0;
+
+      z-index:9200;
+
+      display:flex;
+
+      align-items:center;
+
+      justify-content:center;
+
+      pointer-events:none;
+
+      background:
+        rgba(5,7,10,.78);
+
+      opacity:0;
+
+      transition:
+        opacity .45s;
+
+    }
+
+
+    #storyChapterCard.show{
+      opacity:1;
+    }
+
+
+    #storyChapterCard .inner{
+
+      text-align:center;
+
+      color:white;
+
+    }
+
+
+    #storyChapterCard .number{
+
+      color:#c6a66d;
+
+      letter-spacing:.25em;
+
+      font-size:13px;
+
+    }
+
+
+    #storyChapterCard .title{
+
+      margin-top:8px;
+
+      font-size:34px;
+
+      letter-spacing:.12em;
+
+    }
+
+
+    #storyChapterEnd{
+
+      position:fixed;
+
+      inset:0;
+
+      z-index:9800;
+
+      display:flex;
+
+      align-items:center;
+
+      justify-content:center;
+
+      pointer-events:none;
+
+      opacity:0;
+
+      background:
+        rgba(5,7,10,.84);
+
+      transition:
+        opacity .7s;
+
+    }
+
+
+    #storyChapterEnd.show{
+      opacity:1;
+    }
+
+
+    #storyChapterEnd .inner{
+
+      text-align:center;
+
+      color:#eee6d8;
+
+    }
+
+
+    #storyChapterEnd .small{
+
+      color:#b99a68;
+
+      font-size:12px;
+
+      letter-spacing:.28em;
+
+    }
+
+
+    #storyChapterEnd .big{
+
+      font-size:34px;
+
+      margin-top:10px;
+
+      letter-spacing:.18em;
+
+    }
+
+
+    #storyChapterEnd .next{
+
+      color:#aaa39a;
+
+      font-size:13px;
+
+      margin-top:18px;
+
+    }
+
+
+    /*
+    ========================================================
+     同行中表示
+    ========================================================
+    */
+
+    #storyPartyStatus{
+
+      position:fixed;
+
+      right:18px;
+
+      bottom:18px;
+
+      z-index:500;
+
+      padding:9px 13px;
+
+      background:
+        rgba(15,18,24,.85);
+
+      border:
+        1px solid rgba(198,166,109,.4);
+
+      color:#ddd5c7;
+
+      font-size:12px;
+
+      pointer-events:none;
+
+      opacity:0;
+
+      transition:opacity .25s;
+
+    }
+
+
+    #storyPartyStatus.show{
+      opacity:1;
+    }
+
+
+    @media(max-width:700px){
+
+      .story-mode-buttons{
+        grid-template-columns:1fr;
+      }
+
+
+      #storyObjective{
+        width:220px;
+      }
+
+    }
 
   `;
 
@@ -849,6 +908,7 @@ function storyCreateDOM(){
   objective.id =
     "storyObjective";
 
+
   objective.className =
     "hidden";
 
@@ -880,6 +940,7 @@ function storyCreateDOM(){
 
   choices.id =
     "storyChoices";
+
 
   choices.className =
     "hidden";
@@ -957,6 +1018,25 @@ function storyCreateDOM(){
     end
   );
 
+
+  const party =
+    document.createElement(
+      "div"
+    );
+
+
+  party.id =
+    "storyPartyStatus";
+
+
+  party.textContent =
+    "同行中：林小雨";
+
+
+  document.body.appendChild(
+    party
+  );
+
 }
 
 
@@ -996,6 +1076,7 @@ function showChapterCard(){
 
 
   setTimeout(
+
     ()=>{
 
       card.classList.remove(
@@ -1003,14 +1084,54 @@ function showChapterCard(){
       );
 
     },
+
     1200
+
   );
 
 }
 
 
+function showPartyStatus(){
+
+  const el =
+    document.getElementById(
+      "storyPartyStatus"
+    );
+
+
+  if(el){
+
+    el.classList.add(
+      "show"
+    );
+
+  }
+
+}
+
+
+function hidePartyStatus(){
+
+  const el =
+    document.getElementById(
+      "storyPartyStatus"
+    );
+
+
+  if(el){
+
+    el.classList.remove(
+      "show"
+    );
+
+  }
+
+}
+
+
 // ==========================================================
-// MODE SELECT
+// MODE
 // ==========================================================
 
 function startExploreMode(){
@@ -1023,8 +1144,15 @@ function startExploreMode(){
     false;
 
 
-  STORY.movingNPC =
-    null;
+  STORY.partyActive =
+    false;
+
+
+  STORY.playerTrail =
+    [];
+
+
+  hidePartyStatus();
 
 
   hideAllStoryNPCs();
@@ -1076,8 +1204,16 @@ function startStoryMode(){
     false;
 
 
-  STORY.movingNPC =
-    null;
+  STORY.partyActive =
+    false;
+
+
+  STORY.playerTrail =
+    [];
+
+
+  STORY.stallTriggered =
+    false;
 
 
   document
@@ -1098,6 +1234,9 @@ function startStoryMode(){
     );
 
 
+  hidePartyStatus();
+
+
   currentMapId =
     "food";
 
@@ -1114,6 +1253,10 @@ function startStoryMode(){
     "up";
 
 
+  player.moving =
+    false;
+
+
   camera.x =
     player.x -
     canvas.width/2;
@@ -1126,10 +1269,6 @@ function startStoryMode(){
 
   clampCamera();
 
-
-  /*
-    NPCを初期位置へ戻す。
-  */
 
   resetStoryNPCs();
 
@@ -1149,66 +1288,103 @@ function startStoryMode(){
 
 
 // ==========================================================
-// RESET STORY NPC
+// NPC RESET
 // ==========================================================
 
 function resetStoryNPCs(){
 
-  STORY_NPCS.xiaoyu.x =
+  const xiaoyu =
+    STORY_NPCS.xiaoyu;
+
+
+  xiaoyu.x =
     24*TILE;
 
 
-  STORY_NPCS.xiaoyu.y =
+  xiaoyu.y =
     16*TILE;
 
 
-  STORY_NPCS.xiaoyu.direction =
+  xiaoyu.direction =
     "down";
 
 
-  STORY_NPCS.xiaoyu.marker =
-    true;
-
-
-  STORY_NPCS.xiaoyu.storyInteract =
-    true;
-
-
-  STORY_NPCS.xiaoyu.storyMoving =
+  xiaoyu.visible =
     false;
 
 
-  STORY_NPCS.uncleChen.x =
+  xiaoyu.marker =
+    true;
+
+
+  xiaoyu.storyInteract =
+    true;
+
+
+  xiaoyu.storyMoving =
+    false;
+
+
+  const chen =
+    STORY_NPCS.uncleChen;
+
+
+  chen.x =
     17*TILE;
 
 
-  STORY_NPCS.uncleChen.y =
+  chen.y =
     12*TILE;
 
 
-  STORY_NPCS.uncleChen.marker =
-    true;
+  chen.direction =
+    "right";
 
 
-  STORY_NPCS.uncleChen.storyInteract =
-    true;
+  chen.visible =
+    false;
 
 
-  STORY_NPCS.whiteLady.x =
+  chen.marker =
+    false;
+
+
+  chen.storyInteract =
+    false;
+
+
+  const lady =
+    STORY_NPCS.whiteLady;
+
+
+  lady.x =
     37*TILE;
 
 
-  STORY_NPCS.whiteLady.y =
+  lady.y =
     19*TILE;
 
 
-  hideAllStoryNPCs();
+  lady.direction =
+    "left";
+
+
+  lady.visible =
+    false;
+
+
+  lady.marker =
+    false;
+
+
+  lady.storyInteract =
+    false;
 
 }
 
 
 // ==========================================================
-// NPC VISIBILITY
+// VISIBILITY
 // ==========================================================
 
 function hideAllStoryNPCs(){
@@ -1261,7 +1437,7 @@ function hideStoryNPC(id){
 
 
 // ==========================================================
-// DRAW STORY NPC
+// DRAW STORY NPCS
 // ==========================================================
 
 const STORY_originalDrawEntities =
@@ -1306,14 +1482,16 @@ function(time){
     const x =
       Math.floor(
         npc.x -
-        camera.x
+        camera.x +
+        5
       );
 
 
     const y =
       Math.floor(
         npc.y -
-        camera.y
+        camera.y +
+        3
       );
 
 
@@ -1386,7 +1564,7 @@ function(time){
 
 
 // ==========================================================
-// STORY NPC SEARCH
+// NEAR STORY NPC
 // ==========================================================
 
 function getNearbyStoryNPC(){
@@ -1437,7 +1615,7 @@ function getNearbyStoryNPC(){
     }
 
 
-    const d =
+    const distance =
       Math.hypot(
 
         npc.x+11-px,
@@ -1447,10 +1625,14 @@ function getNearbyStoryNPC(){
       );
 
 
-    if(d<best){
+    if(
+      distance <
+      best
+    ){
 
       best =
-        d;
+        distance;
+
 
       nearest =
         npc;
@@ -1466,7 +1648,7 @@ function getNearbyStoryNPC(){
 
 
 // ==========================================================
-// PATCH INTERACT
+// INTERACTION PATCH
 // ==========================================================
 
 const STORY_originalInteract =
@@ -1481,14 +1663,14 @@ function(){
     "story"
   ){
 
-    const storyNPC =
+    const npc =
       getNearbyStoryNPC();
 
 
-    if(storyNPC){
+    if(npc){
 
       interactStoryNPC(
-        storyNPC
+        npc
       );
 
 
@@ -1505,7 +1687,7 @@ function(){
 
 
 // ==========================================================
-// PATCH INTERACTION HINT
+// HINT PATCH
 // ==========================================================
 
 const STORY_originalUpdateInteractionHint =
@@ -1561,32 +1743,13 @@ function interactStoryNPC(npc){
 
   if(
     npc.id ===
-    "xiaoyu"
-  ){
-
-    if(
-      STORY.step ===
-      1
-    ){
-
-      beginXiaoyuMeeting();
-
-      return;
-
-    }
-
-  }
-
-
-  if(
-    npc.id ===
-      "uncleChen" &&
+      "xiaoyu" &&
 
     STORY.step ===
-      4
+      1
   ){
 
-    beginChenScene();
+    beginXiaoyuMeeting();
 
     return;
 
@@ -1685,9 +1848,7 @@ function storyDialogueSequence(
 }
 
 
-function renderStoryDialogueLine(
-  line
-){
+function renderStoryDialogueLine(line){
 
   speakerName.textContent =
     line.speaker || "";
@@ -1711,7 +1872,7 @@ function renderStoryDialogueLine(
 
 
 // ==========================================================
-// PATCH ADVANCE DIALOGUE
+// ADVANCE DIALOGUE PATCH
 // ==========================================================
 
 const STORY_originalAdvanceDialogue =
@@ -1781,7 +1942,7 @@ function(){
 
 
 // ==========================================================
-// CHOICES
+// CHOICE
 // ==========================================================
 
 function storyChoice(choices){
@@ -1827,7 +1988,9 @@ function storyChoice(choices){
 
 
     button.addEventListener(
+
       "click",
+
       ()=>{
 
         STORY.choiceOpen =
@@ -1850,6 +2013,7 @@ function storyChoice(choices){
         }
 
       }
+
     );
 
 
@@ -1940,15 +2104,17 @@ function storyOpening(){
 
 
 // ==========================================================
-// XIAOYU FIRST MEETING
+// XIAOYU MEETING
 // ==========================================================
 
 function beginXiaoyuMeeting(){
 
-  STORY_NPCS
-    .xiaoyu
-    .marker =
-      false;
+  STORY_NPCS.xiaoyu.marker =
+    false;
+
+
+  STORY_NPCS.xiaoyu.storyInteract =
+    false;
 
 
   storyDialogueSequence(
@@ -1978,178 +2144,7 @@ function beginXiaoyuMeeting(){
 
     ],
 
-    ()=>{
-
-      storyChoice([
-
-
-        // ----------------------------------------------
-        // 留学
-        // ----------------------------------------------
-
-        {
-
-          jp:
-            "留学に来ました",
-
-          cn:
-            "我来杭州留学。",
-
-
-          action(){
-
-            STORY.flags.reason =
-              "study";
-
-
-            storyDialogueSequence(
-
-              [
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"surprised",
-                  text:"原来是留学生啊！"
-                },
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"smile",
-                  text:"那你以后应该会经常来武林。"
-                },
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"smile",
-                  text:"我叫林小雨。杭州人。"
-                }
-
-              ],
-
-              finishXiaoyuIntroduction
-
-            );
-
-          }
-
-        },
-
-
-        // ----------------------------------------------
-        // 旅行
-        // ----------------------------------------------
-
-        {
-
-          jp:
-            "旅行で来ました",
-
-          cn:
-            "我是来杭州旅游的。",
-
-
-          action(){
-
-            STORY.flags.reason =
-              "travel";
-
-
-            storyDialogueSequence(
-
-              [
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"smile",
-                  text:"来杭州旅游啊！"
-                },
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"normal",
-                  text:"那可不能只去西湖。"
-                },
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"smile",
-                  text:"我叫林小雨。这里我很熟。"
-                }
-
-              ],
-
-              finishXiaoyuIntroduction
-
-            );
-
-          }
-
-        },
-
-
-        // ----------------------------------------------
-        // 散歩
-        // ----------------------------------------------
-
-        {
-
-          jp:
-            "ちょっと散歩しています",
-
-          cn:
-            "我只是随便逛逛。",
-
-
-          action(){
-
-            STORY.flags.reason =
-              "walk";
-
-
-            storyDialogueSequence(
-
-              [
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"smile",
-                  text:"随便逛逛也挺好的。"
-                },
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"normal",
-                  text:"有时候这样反而能看到真正的杭州。"
-                },
-
-                {
-                  speaker:"林小雨",
-                  portrait:"xiaoyu",
-                  expression:"smile",
-                  text:"我叫林小雨。走，我带你看看。"
-                }
-
-              ],
-
-              finishXiaoyuIntroduction
-
-            );
-
-          }
-
-        }
-
-      ]);
-
-    }
+    showXiaoyuChoice
 
   );
 
@@ -2157,7 +2152,163 @@ function beginXiaoyuMeeting(){
 
 
 // ==========================================================
-// AFTER INTRODUCTION
+// FIRST CHOICE
+// ==========================================================
+
+function showXiaoyuChoice(){
+
+  storyChoice([
+
+    {
+
+      jp:"留学に来ました",
+
+      cn:"我来杭州留学。",
+
+      action(){
+
+        STORY.flags.reason =
+          "study";
+
+
+        storyDialogueSequence(
+
+          [
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"surprised",
+              text:"原来是留学生啊！"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"smile",
+              text:"那你以后应该会经常来武林。"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"smile",
+              text:"我叫林小雨。杭州人。"
+            }
+
+          ],
+
+          finishXiaoyuIntroduction
+
+        );
+
+      }
+
+    },
+
+
+    {
+
+      jp:"旅行で来ました",
+
+      cn:"我是来杭州旅游的。",
+
+      action(){
+
+        STORY.flags.reason =
+          "travel";
+
+
+        storyDialogueSequence(
+
+          [
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"smile",
+              text:"来杭州旅游啊！"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"normal",
+              text:"那可不能只去西湖。"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"smile",
+              text:"我叫林小雨。这里我很熟。"
+            }
+
+          ],
+
+          finishXiaoyuIntroduction
+
+        );
+
+      }
+
+    },
+
+
+    {
+
+      jp:"ちょっと散歩しています",
+
+      cn:"我只是随便逛逛。",
+
+      action(){
+
+        STORY.flags.reason =
+          "walk";
+
+
+        storyDialogueSequence(
+
+          [
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"smile",
+              text:"随便逛逛也挺好的。"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"normal",
+              text:"有时候这样反而能看到真正的杭州。"
+            },
+
+            {
+              speaker:"林小雨",
+              portrait:"xiaoyu",
+              expression:"smile",
+              text:"我叫林小雨。走，我带你看看。"
+            }
+
+          ],
+
+          finishXiaoyuIntroduction
+
+        );
+
+      }
+
+    }
+
+  ]);
+
+}
+
+
+// ==========================================================
+// START PARTY
 // ==========================================================
 
 function finishXiaoyuIntroduction(){
@@ -2198,12 +2349,12 @@ function finishXiaoyuIntroduction(){
         speaker:"林小雨",
         portrait:"xiaoyu",
         expression:"smile",
-        text:"走吧。"
+        text:"走吧，我们一起过去。"
       }
 
     ],
 
-    startXiaoyuWalk
+    startXiaoyuParty
 
   );
 
@@ -2211,159 +2362,361 @@ function finishXiaoyuIntroduction(){
 
 
 // ==========================================================
-// XIAOYU WALK
+// PARTY SYSTEM
 // ==========================================================
 
-function startXiaoyuWalk(){
+function startXiaoyuParty(){
 
   STORY.step =
     3;
 
 
+  STORY.partyActive =
+    true;
+
+
+  STORY.playerTrail =
+    [];
+
+
+  /*
+    小雨を主人公の少し後ろへ配置。
+
+    ここから小雨自身が
+    「目的地へ歩く」のではなく、
+
+    主人公が実際に通った場所を
+    後から再生する。
+  */
+
+  STORY_NPCS.xiaoyu.x =
+    player.x;
+
+
+  STORY_NPCS.xiaoyu.y =
+    player.y +
+    TILE;
+
+
+  STORY_NPCS.xiaoyu.direction =
+    player.direction;
+
+
+  STORY_NPCS.xiaoyu.visible =
+    true;
+
+
+  STORY_NPCS.xiaoyu.marker =
+    false;
+
+
+  STORY_NPCS.xiaoyu.storyInteract =
+    false;
+
+
+  STORY_NPCS.xiaoyu.storyMoving =
+    false;
+
+
+  showPartyStatus();
+
+
   setStoryObjective(
-    "小雨についていこう"
+    "小雨と一緒に焼烤屋台へ行こう"
   );
 
 
-  /*
-  ========================================================
-   Ver.2.1
-
-   1地点への直進を廃止。
-
-   waypointを
-
-   24,16
-      ↓
-   23,17
-      ↓
-   21,17
-      ↓
-   20,16
-      ↓
-   19,15
-
-   と順番に通過する。
-
-   これにより夜市を歩いて
-   屋台へ向かうように見せる。
-  ========================================================
-  */
-
-
-  STORY.movingNPC = {
-
-    npc:
-      STORY_NPCS.xiaoyu,
-
-
-    waypoints:[
-
-      {
-        x:24*TILE,
-        y:17*TILE
-      },
-
-      {
-        x:22*TILE,
-        y:17*TILE
-      },
-
-      {
-        x:20*TILE,
-        y:17*TILE
-      },
-
-      {
-        x:20*TILE,
-        y:15*TILE
-      },
-
-      {
-        x:19*TILE,
-        y:15*TILE
-      }
-
-    ],
-
-
-    waypointIndex:
-      0,
-
-
-    speed:
-      46,
-
-
-    /*
-      6px以内なら
-      waypoint到着とみなす。
-    */
-
-    tolerance:
-      6,
-
-
-    onArrive:
-      onXiaoyuArrivedAtStall
-
-  };
-
-
-  STORY_NPCS
-    .xiaoyu
-    .storyMoving =
-      true;
-
-
-  /*
-    移動中は話しかけられない。
-  */
-
-  STORY_NPCS
-    .xiaoyu
-    .storyInteract =
-      false;
+  saveStory();
 
 }
 
 
 // ==========================================================
-// XIAOYU ARRIVAL
+// PLAYER TRAIL
 // ==========================================================
 
-function onXiaoyuArrivedAtStall(){
+/*
+==========================================================
+ 同行システム
+
+ 小雨にAIで道を探させない。
+
+ 主人公の過去座標を保存して、
+ 少し前の主人公の位置を
+ 小雨がそのまま通る。
+
+ これなら障害物に引っ掛からない。
+==========================================================
+*/
+
+function updateStoryParty(){
+
+  if(
+    STORY.mode !== "story" ||
+    !STORY.partyActive ||
+    currentMapId !== "food"
+  ){
+
+    return;
+
+  }
+
 
   const xiaoyu =
     STORY_NPCS.xiaoyu;
 
 
   /*
-    最終位置を確実に固定。
+    主人公が実際に移動したときだけ
+    履歴を追加。
+  */
+
+  const last =
+    STORY.playerTrail[
+      STORY.playerTrail.length-1
+    ];
+
+
+  const movedEnough =
+    !last ||
+
+    Math.hypot(
+      player.x-last.x,
+      player.y-last.y
+    ) > 3;
+
+
+  if(movedEnough){
+
+    STORY.playerTrail.push({
+
+      x:player.x,
+
+      y:player.y,
+
+      direction:
+        player.direction
+
+    });
+
+  }
+
+
+  /*
+    履歴が増えすぎないようにする。
+  */
+
+  if(
+    STORY.playerTrail.length >
+    100
+  ){
+
+    STORY.playerTrail.shift();
+
+  }
+
+
+  /*
+    12履歴分ほど後ろを歩く。
+
+    もっと距離を離したければ
+    12 → 16 などに変更可能。
+  */
+
+  const delay =
+    12;
+
+
+  if(
+    STORY.playerTrail.length <=
+    delay
+  ){
+
+    xiaoyu.storyMoving =
+      false;
+
+
+    return;
+
+  }
+
+
+  const target =
+    STORY.playerTrail[
+      STORY.playerTrail.length -
+      delay
+    ];
+
+
+  const oldX =
+    xiaoyu.x;
+
+
+  const oldY =
+    xiaoyu.y;
+
+
+  /*
+    目的地点へ直接スナップ。
+
+    これは「テレポート」ではなく、
+    主人公の履歴が数px刻みなので
+    見た目では普通に歩いて見える。
   */
 
   xiaoyu.x =
-    19*TILE;
+    target.x;
 
 
   xiaoyu.y =
-    15*TILE;
+    target.y;
 
 
   xiaoyu.direction =
-    "left";
+    target.direction;
 
 
   xiaoyu.storyMoving =
+
+    Math.hypot(
+      xiaoyu.x-oldX,
+      xiaoyu.y-oldY
+    ) > 1;
+
+
+  /*
+    古すぎる履歴は捨てる。
+  */
+
+  if(
+    STORY.playerTrail.length >
+    delay+25
+  ){
+
+    STORY.playerTrail.shift();
+
+  }
+
+}
+
+
+// ==========================================================
+// STORY EVENT UPDATE
+// ==========================================================
+
+function updateStoryEvents(){
+
+  if(
+    STORY.mode !== "story"
+  ){
+
+    return;
+
+  }
+
+
+  updateStoryParty();
+
+
+  /*
+    STEP 3
+
+    小雨同行中。
+
+    焼烤屋台周辺に主人公が
+    入ったらイベントを開始する。
+
+    「小雨が目的地に到着したか」は
+    一切判定しない。
+
+    主人公だけを見る。
+  */
+
+  if(
+    STORY.step === 3 &&
+    STORY.partyActive &&
+    !STORY.stallTriggered &&
+    currentMapId === "food" &&
+    !dialogue.active &&
+    !STORY.choiceOpen
+  ){
+
+    checkStallArrival();
+
+  }
+
+}
+
+
+// ==========================================================
+// STALL ARRIVAL
+// ==========================================================
+
+function checkStallArrival(){
+
+  /*
+    焼烤屋台はマップ上の
+    x=13, y=10付近。
+
+    プレイヤーが屋台そのものに
+    ぶつかる必要はなく、
+
+    前の通路に来れば発火する。
+
+    広めのエリアにして
+    「ピンポイント判定」を避ける。
+  */
+
+  const px =
+    player.x /
+    TILE;
+
+
+  const py =
+    player.y /
+    TILE;
+
+
+  const inside =
+
+    px >= 13 &&
+    px <= 21 &&
+
+    py >= 12 &&
+    py <= 18;
+
+
+  if(!inside){
+
+    return;
+
+  }
+
+
+  STORY.stallTriggered =
+    true;
+
+
+  beginStallArrival();
+
+}
+
+
+// ==========================================================
+// ARRIVE AT STALL
+// ==========================================================
+
+function beginStallArrival(){
+
+  STORY.partyActive =
     false;
 
 
-  xiaoyu.storyInteract =
-    false;
+  STORY.playerTrail =
+    [];
 
 
-  xiaoyu.marker =
-    false;
+  hidePartyStatus();
 
 
   STORY.step =
@@ -2371,28 +2724,50 @@ function onXiaoyuArrivedAtStall(){
 
 
   /*
-    陈叔登場。
+    ここが今回のポイント。
+
+    到着したら小雨を
+    必ず屋台前へ配置する。
+
+    小雨自身の移動成功を
+    待つ必要がない。
   */
+
+  STORY_NPCS.xiaoyu.x =
+    19*TILE;
+
+
+  STORY_NPCS.xiaoyu.y =
+    15*TILE;
+
+
+  STORY_NPCS.xiaoyu.direction =
+    "left";
+
+
+  STORY_NPCS.xiaoyu.storyMoving =
+    false;
+
+
+  STORY_NPCS.xiaoyu.visible =
+    true;
+
 
   showStoryNPC(
     "uncleChen"
   );
 
 
-  STORY_NPCS
-    .uncleChen
-    .marker =
-      true;
+  STORY_NPCS.uncleChen.marker =
+    false;
 
 
-  STORY_NPCS
-    .uncleChen
-    .storyInteract =
-      true;
+  STORY_NPCS.uncleChen.storyInteract =
+    false;
 
 
   setStoryObjective(
-    "焼烤屋台の陈叔に話しかけよう"
+    "陈叔の焼烤屋台"
   );
 
 
@@ -2400,9 +2775,8 @@ function onXiaoyuArrivedAtStall(){
 
 
   /*
-    到着時に小雨から一言。
-    これでプレイヤーにも
-    到着したことが明確に分かる。
+    Eを押させず、
+    到着した瞬間にイベント開始。
   */
 
   storyDialogueSequence(
@@ -2421,319 +2795,7 @@ function onXiaoyuArrivedAtStall(){
         portrait:"xiaoyu",
         expression:"smile",
         text:"陈叔！"
-      }
-
-    ]
-
-  );
-
-}
-
-
-// ==========================================================
-// STORY MOVEMENT UPDATE
-// ==========================================================
-
-const STORY_originalUpdateNPCs =
-  updateNPCs;
-
-
-updateNPCs =
-function(dt){
-
-  STORY_originalUpdateNPCs(
-    dt
-  );
-
-
-  updateStoryMovement(
-    dt
-  );
-
-};
-
-
-function updateStoryMovement(dt){
-
-  if(
-    STORY.mode !==
-      "story" ||
-
-    !STORY.movingNPC
-  ){
-
-    return;
-
-  }
-
-
-  if(
-    dialogue.active ||
-    STORY.choiceOpen
-  ){
-
-    return;
-
-  }
-
-
-  const movement =
-    STORY.movingNPC;
-
-
-  const npc =
-    movement.npc;
-
-
-  const waypoints =
-    movement.waypoints;
-
-
-  /*
-    waypointが無い場合は
-    安全に終了。
-  */
-
-  if(
-    !waypoints ||
-    waypoints.length === 0
-  ){
-
-    finishStoryMovement();
-
-    return;
-
-  }
-
-
-  /*
-    現在の目的地点。
-  */
-
-  const waypoint =
-    waypoints[
-      movement.waypointIndex
-    ];
-
-
-  /*
-    全waypointを通過済みなら終了。
-  */
-
-  if(!waypoint){
-
-    finishStoryMovement();
-
-    return;
-
-  }
-
-
-  const dx =
-    waypoint.x -
-    npc.x;
-
-
-  const dy =
-    waypoint.y -
-    npc.y;
-
-
-  const distance =
-    Math.hypot(
-      dx,
-      dy
-    );
-
-
-  /*
-  ========================================================
-   到着判定
-
-   前回は4px未満だったため、
-   微妙な座標誤差で止まる可能性があった。
-
-   今回は6px以内で
-   強制的にwaypointへスナップする。
-  ========================================================
-  */
-
-  if(
-    distance <=
-    movement.tolerance
-  ){
-
-    npc.x =
-      waypoint.x;
-
-
-    npc.y =
-      waypoint.y;
-
-
-    movement.waypointIndex++;
-
-
-    /*
-      最後のwaypointだった場合。
-    */
-
-    if(
-      movement.waypointIndex >=
-      waypoints.length
-    ){
-
-      finishStoryMovement();
-
-    }
-
-
-    return;
-
-  }
-
-
-  /*
-  ========================================================
-   移動
-
-   waypointまでは
-   X/Yのうち距離が大きい方を優先。
-
-   斜め移動させず、
-   RPGらしい上下左右移動にする。
-  ========================================================
-  */
-
-  const step =
-    movement.speed *
-    dt;
-
-
-  if(
-    Math.abs(dx) >=
-    Math.abs(dy)
-  ){
-
-    /*
-      横移動。
-    */
-
-    const moveX =
-      Math.sign(dx) *
-      Math.min(
-        Math.abs(dx),
-        step
-      );
-
-
-    npc.x +=
-      moveX;
-
-
-    npc.direction =
-      dx > 0
-      ? "right"
-      : "left";
-
-  }
-  else{
-
-    /*
-      縦移動。
-    */
-
-    const moveY =
-      Math.sign(dy) *
-      Math.min(
-        Math.abs(dy),
-        step
-      );
-
-
-    npc.y +=
-      moveY;
-
-
-    npc.direction =
-      dy > 0
-      ? "down"
-      : "up";
-
-  }
-
-}
-
-
-// ==========================================================
-// FINISH STORY MOVEMENT
-// ==========================================================
-
-function finishStoryMovement(){
-
-  if(
-    !STORY.movingNPC
-  ){
-
-    return;
-
-  }
-
-
-  const movement =
-    STORY.movingNPC;
-
-
-  const callback =
-    movement.onArrive;
-
-
-  movement.npc.storyMoving =
-    false;
-
-
-  /*
-    先にnullへする。
-
-    callbackの中で
-    新しいイベントを開始しても
-    旧movementが残らない。
-  */
-
-  STORY.movingNPC =
-    null;
-
-
-  if(callback){
-
-    callback();
-
-  }
-
-}
-
-
-// ==========================================================
-// CHEN SCENE
-// ==========================================================
-
-function beginChenScene(){
-
-  STORY_NPCS
-    .uncleChen
-    .marker =
-      false;
-
-
-  STORY_NPCS
-    .uncleChen
-    .storyInteract =
-      false;
-
-
-  storyDialogueSequence(
-
-    [
+      },
 
       {
         speaker:"陈叔",
@@ -2780,7 +2842,43 @@ function beginChenScene(){
 
 
 // ==========================================================
-// ORDER
+// HOOK INTO EXISTING GAME LOOP
+// ==========================================================
+
+/*
+  game.jsでは毎フレーム
+
+  updatePlayer()
+  updateNPCs()
+  updateCamera()
+  ...
+
+  と実行される。
+
+  updateNPCsそのものを書き換えず、
+  元の処理が終わったあとだけ
+  story処理を追加する。
+*/
+
+const STORY_baseUpdateNPCs =
+  updateNPCs;
+
+
+updateNPCs =
+function(dt){
+
+  STORY_baseUpdateNPCs(
+    dt
+  );
+
+
+  updateStoryEvents();
+
+};
+
+
+// ==========================================================
+// FOOD CHOICE
 // ==========================================================
 
 function showFoodChoice(){
@@ -2789,12 +2887,9 @@ function showFoodChoice(){
 
     {
 
-      jp:
-        "焼き串をください",
+      jp:"焼き串をください",
 
-      cn:
-        "我要一份烤串。",
-
+      cn:"我要一份烤串。",
 
       action(){
 
@@ -2833,12 +2928,9 @@ function showFoodChoice(){
 
     {
 
-      jp:
-        "おすすめは何ですか？",
+      jp:"おすすめは何ですか？",
 
-      cn:
-        "有什么推荐的吗？",
-
+      cn:"有什么推荐的吗？",
 
       action(){
 
@@ -2884,12 +2976,9 @@ function showFoodChoice(){
 
     {
 
-      jp:
-        "辛くしないでください",
+      jp:"辛くしないでください",
 
-      cn:
-        "不要辣，谢谢。",
-
+      cn:"不要辣，谢谢。",
 
       action(){
 
@@ -3004,7 +3093,7 @@ function finishFoodScene(){
 
 
 // ==========================================================
-// WHITE LADY SCENE
+// WHITE LADY
 // ==========================================================
 
 function beginWhiteLadyScene(){
@@ -3035,7 +3124,7 @@ function beginWhiteLadyScene(){
             speaker:"杭州探索録",
             portrait:"tourist",
             expression:"normal",
-            text:"そのとき、人混みの向こうに一人の女性が見えた。"
+            text:"そのとき、人混みの向こうに、一人の女性が見えた。"
           },
 
           {
@@ -3049,7 +3138,7 @@ function beginWhiteLadyScene(){
             speaker:"杭州探索録",
             portrait:"tourist",
             expression:"normal",
-            text:"何か珍しいものでも見るように、楽しそうに。"
+            text:"まるで初めて夜市を見るように、楽しそうに。"
           }
 
         ],
@@ -3060,7 +3149,7 @@ function beginWhiteLadyScene(){
 
     },
 
-    700
+    650
 
   );
 
@@ -3157,7 +3246,6 @@ function showFinalChoice(){
       cn:
         "刚才那里有一个穿白衣服的女人。",
 
-
       action(){
 
         storyDialogueSequence(
@@ -3203,7 +3291,6 @@ function showFinalChoice(){
 
       cn:
         "……没什么。",
-
 
       action(){
 
@@ -3258,6 +3345,13 @@ function finishChapterOne(){
     true;
 
 
+  STORY.partyActive =
+    false;
+
+
+  hidePartyStatus();
+
+
   saveStory();
 
 
@@ -3301,7 +3395,7 @@ function finishChapterOne(){
 
 
 // ==========================================================
-// CHAPTER END CARD
+// END CARD
 // ==========================================================
 
 function showChapterEnd(){
@@ -3386,5 +3480,5 @@ initializeStoryMode();
 
 
 console.log(
-  "杭州探索録 Story Mode Ver.2.1 / Chapter 1 loaded"
+  "杭州探索録 Story Mode Ver.2.2 / Party System loaded"
 );
