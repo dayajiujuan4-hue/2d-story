@@ -2,10 +2,17 @@
 <html lang="ja">
 
 <head>
+
   <meta charset="UTF-8">
+
   <meta
     name="viewport"
     content="width=device-width, initial-scale=1.0"
+  >
+
+  <meta
+    name="theme-color"
+    content="#090b13"
   >
 
   <title>杭州探索録 - 武林夜市</title>
@@ -14,10 +21,247 @@
     rel="stylesheet"
     href="style.css"
   >
+
 </head>
 
 
 <body>
+
+
+<!-- =========================================================
+     TITLE SCREEN
+========================================================= -->
+
+<div
+  id="titleScreen"
+  class="title-screen"
+>
+
+
+  <!-- blurred background -->
+
+  <div
+    class="title-background"
+    aria-hidden="true"
+  ></div>
+
+
+  <div
+    class="title-background-dark"
+    aria-hidden="true"
+  ></div>
+
+
+  <!-- atmosphere -->
+
+  <div
+    class="title-mist title-mist-a"
+    aria-hidden="true"
+  ></div>
+
+  <div
+    class="title-mist title-mist-b"
+    aria-hidden="true"
+  ></div>
+
+
+  <div
+    id="titlePetals"
+    class="title-petals"
+    aria-hidden="true"
+  ></div>
+
+
+  <!-- MAIN VISUAL -->
+
+  <div class="title-visual-wrap">
+
+    <div class="title-visual-glow"></div>
+
+
+    <img
+      class="title-visual"
+      src="assets/title/wulin-title.png"
+      alt="杭州探索録 武林夜市"
+      draggable="false"
+    >
+
+
+    <div class="title-visual-vignette"></div>
+
+
+    <!-- MENU -->
+
+    <div
+      id="titleMenu"
+      class="title-menu"
+    >
+
+      <div class="title-menu-decoration">
+        <span></span>
+
+        <div>
+          WULIN NIGHT MARKET
+        </div>
+
+        <span></span>
+      </div>
+
+
+      <button
+        class="title-menu-item selected"
+        data-title-action="new"
+        type="button"
+      >
+        <span class="title-menu-pointer">
+          ◆
+        </span>
+
+        <span class="title-menu-main">
+          はじめから
+        </span>
+
+        <span class="title-menu-sub">
+          NEW STORY
+        </span>
+      </button>
+
+
+      <button
+        id="continueButton"
+        class="title-menu-item"
+        data-title-action="continue"
+        type="button"
+      >
+        <span class="title-menu-pointer">
+          ◆
+        </span>
+
+        <span class="title-menu-main">
+          つづきから
+        </span>
+
+        <span
+          id="continueSub"
+          class="title-menu-sub"
+        >
+          CONTINUE
+        </span>
+      </button>
+
+
+      <button
+        class="title-menu-item"
+        data-title-action="explore"
+        type="button"
+      >
+        <span class="title-menu-pointer">
+          ◆
+        </span>
+
+        <span class="title-menu-main">
+          夜市散策
+        </span>
+
+        <span class="title-menu-sub">
+          FREE WALK
+        </span>
+      </button>
+
+
+      <div class="title-menu-help">
+
+        <span class="title-key">
+          ↑ ↓
+        </span>
+
+        <span class="title-key">
+          W S
+        </span>
+
+        選択
+
+        <span class="title-key">
+          E
+        </span>
+
+        <span class="title-key">
+          ENTER
+        </span>
+
+        決定
+
+      </div>
+
+    </div>
+
+
+    <div class="title-location">
+
+      中国 · 浙江省 · 杭州市
+
+      <span>
+        CHINA · ZHEJIANG · HANGZHOU
+      </span>
+
+    </div>
+
+
+  </div>
+
+
+  <div class="title-version">
+    HANGZHOU EXPLORER
+  </div>
+
+
+</div>
+
+
+
+<!-- =========================================================
+     INTRO SCREEN
+========================================================= -->
+
+<div
+  id="introScreen"
+  class="intro-screen"
+>
+
+  <div class="intro-inner">
+
+    <div class="intro-place">
+      中国 · 浙江省 · 杭州市
+    </div>
+
+
+    <div class="intro-line"></div>
+
+
+    <p class="intro-text intro-text-1">
+      夜の武林。
+    </p>
+
+
+    <p class="intro-text intro-text-2">
+      屋台の灯りと人々の声が、<br>
+      細い路地を満たしている。
+    </p>
+
+
+    <p class="intro-text intro-text-3">
+      ―― 杭州の夜を、歩こう。
+    </p>
+
+  </div>
+
+</div>
+
+
+
+<!-- =========================================================
+     GAME
+========================================================= -->
 
 <main class="game-shell">
 
@@ -66,7 +310,7 @@
 
 
   <!-- ========================================
-       GAME
+       GAME FRAME
   ========================================= -->
 
   <section class="game-frame">
@@ -441,34 +685,62 @@
 
 
 
-<!-- ========================================
+<!-- =========================================================
      JAVASCRIPT
-
-     読み込み順が重要です
-========================================= -->
+     読み込み順が重要
+========================================================= -->
 
 <script src="map.js"></script>
+
 <script src="vocabulary.js"></script>
+
 <script src="dialogue.js"></script>
+
 <script src="game.js"></script>
+
 <script src="visuals.js"></script>
+
 <script src="motion.js"></script>
+
 <script src="portraits.js"></script>
+
 <script src="story.js"></script>
 
-<!-- NEW -->
+
+<!-- STORY -->
+
 <script src="story-chapter3.js"></script>
+
 <script src="story-chapter4.js"></script>
+
 <script src="story-chapter5.js"></script>
+
 <script src="story-chapter6.js"></script>
+
 <script src="story-chapter7.js"></script>
 
-<!-- 最終章 -->
+
+<!-- FINAL -->
+
 <script src="story-final-map.js"></script>
+
 <script src="story-chapter8.js"></script>
 
+
+<!-- LEARNING -->
+
 <script src="learning.js"></script>
+
 <script src="dialect.js"></script>
+
+
+<!-- =========================================================
+     TITLE SYSTEM
+     必ず最後に読み込む
+========================================================= -->
+
+<script src="title.js"></script>
+
 
 </body>
 
