@@ -3,10 +3,14 @@
 /*
 ==========================================================
  杭州探索録
- PORTRAIT SYSTEM Ver.1
+ PORTRAIT SYSTEM Ver.1.1
 
  NPC会話用ピクセルポートレート
  外部画像不要
+
+ Ver.1.1
+ ・白姑娘を正式追加
+ ・白姑娘を黒髪ロング＋白衣に変更
 ==========================================================
 */
 
@@ -20,6 +24,25 @@ const PORTRAITS={
     hair2:"#3a3037",
     clothes:"#708ca0",
     accent:"#d9e7ee"
+  },
+
+  /*
+  ========================================================
+  白姑娘
+  ========================================================
+  */
+
+  whiteLady:{
+    name:"白姑娘",
+    skin:"#f2d1ba",
+
+    // ほぼ黒に近い長い髪
+    hair:"#17171b",
+    hair2:"#29272d",
+
+    // 白衣
+    clothes:"#eeeae2",
+    accent:"#cfd8dc"
   },
 
   uncleChen:{
@@ -151,6 +174,87 @@ function drawPixelPortrait(
 
   /*
   --------------------------------------------------------
+  白姑娘：後ろ髪
+
+  顔や肩より先に描くことで
+  長い髪が背中側へ落ちて見える
+  --------------------------------------------------------
+  */
+
+  if(id==="whiteLady"){
+
+    ctx.fillStyle=
+      p.hair;
+
+
+    // 左側の長い髪
+
+    ctx.fillRect(
+      10,20,
+      10,40
+    );
+
+    ctx.fillRect(
+      8,29,
+      8,31
+    );
+
+
+    // 右側の長い髪
+
+    ctx.fillRect(
+      44,20,
+      10,40
+    );
+
+    ctx.fillRect(
+      48,29,
+      8,31
+    );
+
+
+    // 背中側
+
+    ctx.fillRect(
+      15,40,
+      34,22
+    );
+
+
+    // 毛先を少し不揃いに
+
+    ctx.fillRect(
+      11,57,
+      6,6
+    );
+
+    ctx.fillRect(
+      47,56,
+      6,7
+    );
+
+
+    ctx.fillStyle=
+      p.hair2;
+
+
+    // 長髪に少しだけ光を入れる
+
+    ctx.fillRect(
+      12,27,
+      3,24
+    );
+
+    ctx.fillRect(
+      49,25,
+      2,20
+    );
+
+  }
+
+
+  /*
+  --------------------------------------------------------
   SHOULDERS
   --------------------------------------------------------
   */
@@ -169,13 +273,70 @@ function drawPixelPortrait(
   );
 
 
-  ctx.fillStyle=
-    p.accent;
+  /*
+  白姑娘は普通の縦ラインではなく
+  白衣らしい襟にする
+  */
 
-  ctx.fillRect(
-    27,49,
-    10,15
-  );
+  if(id==="whiteLady"){
+
+    ctx.fillStyle=
+      p.accent;
+
+
+    // 左襟
+
+    ctx.fillRect(
+      24,49,
+      5,12
+    );
+
+    ctx.fillRect(
+      27,52,
+      4,12
+    );
+
+
+    // 右襟
+
+    ctx.fillRect(
+      35,49,
+      5,12
+    );
+
+    ctx.fillRect(
+      33,52,
+      4,12
+    );
+
+
+    // 白衣の明るい部分
+
+    ctx.fillStyle=
+      "#faf8f2";
+
+    ctx.fillRect(
+      14,51,
+      8,10
+    );
+
+    ctx.fillRect(
+      42,51,
+      8,10
+    );
+
+  }
+  else{
+
+    ctx.fillStyle=
+      p.accent;
+
+    ctx.fillRect(
+      27,49,
+      10,15
+    );
+
+  }
 
 
   /*
@@ -287,6 +448,126 @@ function drawPixelPortrait(
 
 
   /*
+  ========================================================
+  白姑娘専用
+
+  ・黒髪ロング
+  ・顔の両側に長い髪
+  ・毛先は肩より下
+  ========================================================
+  */
+
+  if(id==="whiteLady"){
+
+    /*
+    頭頂部を少し丸く
+    */
+
+    ctx.fillStyle=
+      p.hair;
+
+    ctx.fillRect(
+      18,8,
+      28,5
+    );
+
+    ctx.fillRect(
+      14,12,
+      36,8
+    );
+
+
+    /*
+    顔の左側
+    */
+
+    ctx.fillRect(
+      12,18,
+      8,30
+    );
+
+    ctx.fillRect(
+      10,31,
+      8,27
+    );
+
+
+    /*
+    顔の右側
+    */
+
+    ctx.fillRect(
+      44,18,
+      8,30
+    );
+
+    ctx.fillRect(
+      46,31,
+      8,27
+    );
+
+
+    /*
+    頬の横に細い髪
+    */
+
+    ctx.fillRect(
+      17,25,
+      3,22
+    );
+
+    ctx.fillRect(
+      44,25,
+      3,22
+    );
+
+
+    /*
+    前髪
+    */
+
+    ctx.fillRect(
+      18,14,
+      9,7
+    );
+
+    ctx.fillRect(
+      25,12,
+      7,8
+    );
+
+    ctx.fillRect(
+      38,13,
+      7,8
+    );
+
+
+    /*
+    髪のハイライト
+    */
+
+    ctx.fillStyle=
+      p.hair2;
+
+    ctx.fillRect(
+      14,23,
+      2,20
+    );
+
+    ctx.fillRect(
+      48,22,
+      2,19
+    );
+
+    ctx.fillRect(
+      21,10,
+      17,2
+    );
+
+  }
+
+
+  /*
   陈叔
   */
 
@@ -310,7 +591,9 @@ function drawPixelPortrait(
   */
 
   ctx.fillStyle=
-    "#3b2925";
+    id==="whiteLady"
+      ? "#30262a"
+      : "#3b2925";
 
 
   if(expression==="angry"){
@@ -392,6 +675,31 @@ function drawPixelPortrait(
     ctx.fillRect(
       37,28,
       3,3
+    );
+
+  }
+
+
+  /*
+  白姑娘だけ目元を少し柔らかくする
+  */
+
+  if(
+    id==="whiteLady" &&
+    expression==="normal"
+  ){
+
+    ctx.fillStyle=
+      "#3a3035";
+
+    ctx.fillRect(
+      23,28,
+      5,1
+    );
+
+    ctx.fillRect(
+      36,28,
+      5,1
     );
 
   }
@@ -619,5 +927,5 @@ startDialogue=function(npc){
 
 
 console.log(
-  "杭州探索録 Portrait System Ver.1 loaded"
+  "杭州探索録 Portrait System Ver.1.1 / White Lady Long Hair loaded"
 );
