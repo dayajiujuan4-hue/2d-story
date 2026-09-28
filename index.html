@@ -10,11 +10,6 @@
     content="width=device-width, initial-scale=1.0"
   >
 
-  <meta
-    name="theme-color"
-    content="#090b13"
-  >
-
   <title>杭州探索録 - 武林夜市</title>
 
   <link
@@ -28,164 +23,161 @@
 <body>
 
 
-<!-- =========================================================
-     TITLE SCREEN
-========================================================= -->
+<!-- =====================================================
+     NEW TITLE SCREEN
+===================================================== -->
 
 <div
-  id="titleScreen"
-  class="title-screen"
+  id="newTitleScreen"
+  class="new-title-screen"
 >
 
 
-  <!-- blurred background -->
+  <!-- 左右背景用 -->
 
   <div
-    class="title-background"
+    class="new-title-bg"
     aria-hidden="true"
   ></div>
 
 
   <div
-    class="title-background-dark"
+    class="new-title-dark"
     aria-hidden="true"
   ></div>
 
 
-  <!-- atmosphere -->
+  <!-- メインビジュアル -->
 
-  <div
-    class="title-mist title-mist-a"
-    aria-hidden="true"
-  ></div>
-
-  <div
-    class="title-mist title-mist-b"
-    aria-hidden="true"
-  ></div>
-
-
-  <div
-    id="titlePetals"
-    class="title-petals"
-    aria-hidden="true"
-  ></div>
-
-
-  <!-- MAIN VISUAL -->
-
-  <div class="title-visual-wrap">
-
-    <div class="title-visual-glow"></div>
+  <div class="new-title-art-wrap">
 
 
     <img
-      class="title-visual"
       src="assets/title/wulin-title.png"
       alt="杭州探索録 武林夜市"
+      class="new-title-art"
       draggable="false"
     >
 
 
-    <div class="title-visual-vignette"></div>
+    <div
+      class="new-title-art-shade"
+      aria-hidden="true"
+    ></div>
 
 
-    <!-- MENU -->
+
+    <!-- =================================================
+         MODE SELECT
+    ================================================== -->
 
     <div
-      id="titleMenu"
-      class="title-menu"
+      id="newTitleMenu"
+      class="new-title-menu"
     >
 
-      <div class="title-menu-decoration">
-        <span></span>
 
-        <div>
-          WULIN NIGHT MARKET
-        </div>
+      <div class="new-title-menu-head">
 
         <span></span>
+
+        <small>
+          SELECT MODE
+        </small>
+
+        <span></span>
+
       </div>
 
 
+
+      <!-- EXPLORE -->
+
       <button
-        class="title-menu-item selected"
-        data-title-action="new"
+        id="newExploreButton"
+        class="new-title-option selected"
         type="button"
+        data-mode="explore"
       >
-        <span class="title-menu-pointer">
+
+        <span class="new-title-arrow">
           ◆
         </span>
 
-        <span class="title-menu-main">
-          はじめから
+
+        <span class="new-title-option-text">
+
+          <strong>
+            探索モード
+          </strong>
+
+          <small>
+            EXPLORE MODE
+          </small>
+
         </span>
 
-        <span class="title-menu-sub">
-          NEW STORY
+
+        <span class="new-title-description">
+          自由に杭州を歩き、街の中国語を集める
         </span>
+
       </button>
 
 
+
+      <!-- STORY -->
+
       <button
-        id="continueButton"
-        class="title-menu-item"
-        data-title-action="continue"
+        id="newStoryButton"
+        class="new-title-option"
         type="button"
+        data-mode="story"
       >
-        <span class="title-menu-pointer">
+
+        <span class="new-title-arrow">
           ◆
         </span>
 
-        <span class="title-menu-main">
-          つづきから
+
+        <span class="new-title-option-text">
+
+          <strong>
+            ストーリーモード
+          </strong>
+
+          <small>
+            STORY MODE
+          </small>
+
         </span>
 
-        <span
-          id="continueSub"
-          class="title-menu-sub"
-        >
-          CONTINUE
+
+        <span class="new-title-description">
+          武林の夜を歩き、人々との出会いを体験する
         </span>
+
       </button>
 
 
-      <button
-        class="title-menu-item"
-        data-title-action="explore"
-        type="button"
-      >
-        <span class="title-menu-pointer">
-          ◆
-        </span>
 
-        <span class="title-menu-main">
-          夜市散策
-        </span>
+      <div class="new-title-controls">
 
-        <span class="title-menu-sub">
-          FREE WALK
-        </span>
-      </button>
-
-
-      <div class="title-menu-help">
-
-        <span class="title-key">
+        <span>
           ↑ ↓
         </span>
 
-        <span class="title-key">
+        <span>
           W S
         </span>
 
         選択
 
-        <span class="title-key">
+        <span>
           E
         </span>
 
-        <span class="title-key">
+        <span>
           ENTER
         </span>
 
@@ -193,25 +185,22 @@
 
       </div>
 
+
     </div>
 
 
-    <div class="title-location">
+
+    <div class="new-title-location">
 
       中国 · 浙江省 · 杭州市
 
-      <span>
-        CHINA · ZHEJIANG · HANGZHOU
-      </span>
+      <small>
+        HANGZHOU · ZHEJIANG · CHINA
+      </small>
 
     </div>
 
 
-  </div>
-
-
-  <div class="title-version">
-    HANGZHOU EXPLORER
   </div>
 
 
@@ -219,58 +208,19 @@
 
 
 
-<!-- =========================================================
-     INTRO SCREEN
-========================================================= -->
-
-<div
-  id="introScreen"
-  class="intro-screen"
->
-
-  <div class="intro-inner">
-
-    <div class="intro-place">
-      中国 · 浙江省 · 杭州市
-    </div>
-
-
-    <div class="intro-line"></div>
-
-
-    <p class="intro-text intro-text-1">
-      夜の武林。
-    </p>
-
-
-    <p class="intro-text intro-text-2">
-      屋台の灯りと人々の声が、<br>
-      細い路地を満たしている。
-    </p>
-
-
-    <p class="intro-text intro-text-3">
-      ―― 杭州の夜を、歩こう。
-    </p>
-
-  </div>
-
-</div>
-
-
-
-<!-- =========================================================
+<!-- =====================================================
      GAME
-========================================================= -->
+===================================================== -->
 
 <main class="game-shell">
 
 
-  <!-- ========================================
+  <!-- ===================================================
        HEADER
-  ========================================= -->
+  ==================================================== -->
 
   <header class="game-header">
+
 
     <div>
 
@@ -283,6 +233,7 @@
       </h1>
 
     </div>
+
 
 
     <div class="header-right">
@@ -305,13 +256,14 @@
 
     </div>
 
+
   </header>
 
 
 
-  <!-- ========================================
+  <!-- ===================================================
        GAME FRAME
-  ========================================= -->
+  ==================================================== -->
 
   <section class="game-frame">
 
@@ -335,9 +287,11 @@
         AREA
       </small>
 
-      <strong id="areaBannerName"></strong>
+      <strong id="areaBannerName">
+      </strong>
 
-      <span id="areaBannerSub"></span>
+      <span id="areaBannerSub">
+      </span>
 
     </div>
 
@@ -362,12 +316,15 @@
 
 
 
-    <!-- DIALOGUE -->
+    <!-- =================================================
+         DIALOGUE
+    ================================================== -->
 
     <div
       id="dialogueBox"
       class="dialogue-box hidden"
     >
+
 
       <div class="portrait">
 
@@ -376,6 +333,7 @@
         </div>
 
       </div>
+
 
 
       <div class="dialogue-content">
@@ -398,57 +356,70 @@
 
       </div>
 
+
     </div>
 
 
 
-    <!-- WORD GET -->
+    <!-- =================================================
+         WORD GET
+    ================================================== -->
 
     <div
       id="wordGet"
       class="word-get hidden"
     >
 
+
       <div class="word-get-label">
         NEW WORD GET!
       </div>
+
 
       <div
         id="wordGetChinese"
         class="word-get-chinese"
       ></div>
 
+
       <div
         id="wordGetPinyin"
         class="word-get-pinyin"
       ></div>
+
 
       <div
         id="wordGetMeaning"
         class="word-get-meaning"
       ></div>
 
+
       <div
         id="wordGetCategory"
         class="word-get-category"
       ></div>
 
+
       <div
         id="wordGetProgress"
         class="word-get-progress"
       >
-        1 / 100
+        0 / 100
       </div>
+
 
       <div class="word-get-close">
         E / ENTER
       </div>
 
+
     </div>
 
 
 
-    <!-- RANK UP -->
+    <!-- =================================================
+         RANK UP
+    ================================================== -->
 
     <div
       id="rankUpPanel"
@@ -476,14 +447,17 @@
 
 
 
-    <!-- COMPLETION -->
+    <!-- =================================================
+         COMPLETE
+    ================================================== -->
 
     <div
       id="completionPanel"
       class="completion-panel hidden"
     >
 
-      <div class="completion-glow"></div>
+      <div class="completion-glow">
+      </div>
 
 
       <div class="completion-content">
@@ -504,7 +478,8 @@
           100 / 100
         </div>
 
-        <div class="completion-divider"></div>
+        <div class="completion-divider">
+        </div>
 
         <p>
           杭州の夜を歩き、人々と言葉を交わし、<br>
@@ -529,21 +504,26 @@
 
       </div>
 
+
     </div>
 
 
 
-    <!-- LIBRARY -->
+    <!-- =================================================
+         LIBRARY
+    ================================================== -->
 
     <div
       id="libraryPanel"
       class="library-panel hidden"
     >
 
+
       <div class="library-window">
 
 
         <div class="library-top">
+
 
           <div>
 
@@ -564,6 +544,7 @@
             </p>
 
           </div>
+
 
 
           <div class="library-controls">
@@ -587,6 +568,7 @@
             閉じる
 
           </div>
+
 
         </div>
 
@@ -613,13 +595,17 @@
 
         </div>
 
+
       </div>
+
 
     </div>
 
 
 
-    <!-- FADE -->
+    <!-- =================================================
+         FADE
+    ================================================== -->
 
     <div
       id="fadeLayer"
@@ -631,11 +617,12 @@
 
 
 
-  <!-- ========================================
+  <!-- ===================================================
        FOOTER
-  ========================================= -->
+  ==================================================== -->
 
   <footer class="game-footer">
+
 
     <div>
 
@@ -678,6 +665,7 @@
       中国 · 浙江省 · 杭州市
     </div>
 
+
   </footer>
 
 
@@ -685,10 +673,9 @@
 
 
 
-<!-- =========================================================
-     JAVASCRIPT
-     読み込み順が重要
-========================================================= -->
+<!-- =====================================================
+     ORIGINAL GAME SCRIPTS
+===================================================== -->
 
 <script src="map.js"></script>
 
@@ -704,10 +691,13 @@
 
 <script src="portraits.js"></script>
 
+
+<!-- STORY CORE -->
+
 <script src="story.js"></script>
 
 
-<!-- STORY -->
+<!-- STORY CHAPTERS -->
 
 <script src="story-chapter3.js"></script>
 
@@ -720,9 +710,12 @@
 <script src="story-chapter7.js"></script>
 
 
-<!-- FINAL -->
+<!-- FINAL MAP -->
 
 <script src="story-final-map.js"></script>
+
+
+<!-- FINAL CHAPTER -->
 
 <script src="story-chapter8.js"></script>
 
@@ -734,10 +727,10 @@
 <script src="dialect.js"></script>
 
 
-<!-- =========================================================
-     TITLE SYSTEM
-     必ず最後に読み込む
-========================================================= -->
+<!-- =====================================================
+     NEW TITLE
+     必ず一番最後
+===================================================== -->
 
 <script src="title.js"></script>
 
