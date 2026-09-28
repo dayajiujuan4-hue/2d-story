@@ -2,98 +2,61 @@
 
 
 /*
-============================================================
+==========================================================
  杭州探索録
- TITLE SYSTEM Ver.1.0
+ 武林夜市
 
- ・パッケージイラストを使用したタイトル画面
- ・W/S / ↑↓ で選択
- ・E / ENTER で決定
- ・マウス操作対応
- ・はじめから
- ・つづきから
- ・夜市散策
- ・既存 STORY MODE と連携
- ・既存 game.js を極力変更しない
-============================================================
+ TITLE SCREEN Ver.2.0
+
+ ・探索モード
+ ・ストーリーモード
+ ・既存 story.js と直接連携
+ ・セーブ／ロード処理は追加しない
+ ・既存ゲームロジックは変更しない
+==========================================================
 */
 
 
 (function(){
 
 
-  // =========================================================
-  // CONFIG
-  // =========================================================
-
-  const TITLE_CONFIG = {
-
-    storySaveKey:
-      "hangzhouStorySaveV3",
-
-    introDuration:
-      5200,
-
-    fadeDuration:
-      1100,
-
-    petalInterval:
-      720,
-
-    maxPetals:
-      18
-
-  };
-
-
-
-  // =========================================================
+  // ======================================================
   // DOM
-  // =========================================================
+  // ======================================================
 
   const titleScreen =
     document.getElementById(
-      "titleScreen"
+      "newTitleScreen"
     );
 
 
   const titleMenu =
     document.getElementById(
-      "titleMenu"
+      "newTitleMenu"
     );
 
 
-  const introScreen =
+  const exploreButton =
     document.getElementById(
-      "introScreen"
+      "newExploreButton"
     );
 
 
-  const continueButton =
+  const storyButton =
     document.getElementById(
-      "continueButton"
-    );
-
-
-  const continueSub =
-    document.getElementById(
-      "continueSub"
-    );
-
-
-  const petalLayer =
-    document.getElementById(
-      "titlePetals"
+      "newStoryButton"
     );
 
 
   if(
     !titleScreen ||
-    !titleMenu
+    !titleMenu ||
+    !exploreButton ||
+    !storyButton
   ){
 
-    console.warn(
-      "Title System: DOM not found."
+    console.error(
+      "TITLE SCREEN: 必要なDOMが見つかりません。"
     );
 
     return;
@@ -102,102 +65,54 @@
 
 
 
-  // =========================================================
+  // ======================================================
   // STATE
-  // =========================================================
+  // ======================================================
 
-  const TITLE = {
+  let titleActive =
+    true;
 
-    active:
-      true,
 
-    transitioning:
-      false,
+  let transitionLock =
+    false;
 
-    selection:
-      0,
 
-    buttons:
-      [],
+  let selectedIndex =
+    0;
 
-    continueAvailable:
-      false,
 
-    continueData:
-      null,
+  const buttons = [
 
-    petalTimer:
-      null
+    exploreButton,
 
-  };
+    storyButton
+
+  ];
 
 
 
-  // =========================================================
-  // BUTTONS
-  // =========================================================
+  // ======================================================
+  // LEGACY STORY MODE SCREEN
+  // ======================================================
 
-  TITLE.buttons =
-    Array.from(
-      titleMenu.querySelectorAll(
-        ".title-menu-item"
-      )
-    );
+  function hideOldStoryModeScreen(){
 
-
-
-  // =========================================================
-  // STORY CHAPTER NAMES
-  // =========================================================
-
-  const CHAPTER_NAMES = {
-
-    1:
-      "武林の夜",
-
-    2:
-      "白衣の女",
-
-    3:
-      "人間の夜",
-
-    4:
-      "消える人",
-
-    5:
-      "西湖の夜",
-
-    6:
-      "白蛇伝",
-
-    7:
-      "灯りの消える夜",
-
-    8:
-      "灯火の向こう"
-
-  };
-
-
-
-  // =========================================================
-  // UTILITY
-  // =========================================================
-
-  function safeJSONParse(
-    raw
-  ){
-
-    try{
-
-      return JSON.parse(
-        raw
+    const oldScreen =
+      document.getElementById(
+        "storyModeScreen"
       );
 
-    }
-    catch(error){
 
-      return null;
+    if(
+      oldScreen
+    ){
+
+      oldScreen.classList.add(
+        "hidden"
+      );
+
+      oldScreen.style.display =
+        "none";
 
     }
 
@@ -205,12 +120,15 @@
 
 
 
+  // ======================================================
+  // GAME KEYS
+  // ======================================================
+
   function clearGameKeys(){
 
     /*
-      game.js の keys が存在する場合、
-      タイトル操作のキー入力を
-      本編へ持ち越さない。
+      game.js 側の keys に
+      タイトル画面のキー入力を残さない。
     */
 
     try{
@@ -238,7 +156,10 @@
     }
     catch(error){
 
-      // 何もしない
+      /*
+        keys が存在しない場合は
+        何もしない。
+      */
 
     }
 
@@ -246,287 +167,24 @@
 
 
 
-  // =========================================================
-  // CONTINUE DATA
-  // =========================================================
-
-  function loadContinueData(){
-
-    let raw =
-      null;
-
-
-    try{
-
-      raw =
-        localStorage.getItem(
-          TITLE_CONFIG.storySaveKey
-        );
-
-    }
-    catch(error){
-
-      raw =
-        null;
-
-    }
-
-
-    if(!raw){
-
-      TITLE.continueAvailable =
-        false;
-
-      TITLE.continueData =
-        null;
-
-      return;
-
-    }
-
-
-    const data =
-      safeJSONParse(
-        raw
-      );
-
-
-    if(
-      !data ||
-      typeof data !==
-      "object"
-    ){
-
-      TITLE.continueAvailable =
-        false;
-
-      TITLE.continueData =
-        null;
-
-      return;
-
-    }
-
-
-    TITLE.continueAvailable =
-      true;
-
-    TITLE.continueData =
-      data;
-
-  }
-
-
-
-  // =========================================================
-  // CONTINUE UI
-  // =========================================================
-
-  function updateContinueUI(){
-
-    loadContinueData();
-
-
-    if(
-      !continueButton
-    ){
-      return;
-    }
-
-
-    if(
-      !TITLE.continueAvailable
-    ){
-
-      continueButton
-        .classList
-        .add(
-          "disabled"
-        );
-
-
-      continueButton
-        .setAttribute(
-          "aria-disabled",
-          "true"
-        );
-
-
-      if(
-        continueSub
-      ){
-
-        continueSub.textContent =
-          "NO SAVE DATA";
-
-      }
-
-
-      return;
-
-    }
-
-
-    continueButton
-      .classList
-      .remove(
-        "disabled"
-      );
-
-
-    continueButton
-      .setAttribute(
-        "aria-disabled",
-        "false"
-      );
-
-
-    const chapter =
-      Number(
-        TITLE.continueData.chapter
-      ) || 1;
-
-
-    const chapterName =
-      CHAPTER_NAMES[
-        chapter
-      ] || "";
-
-
-    if(
-      continueSub
-    ){
-
-      continueSub.textContent =
-        `第${chapter}章 ${chapterName}`;
-
-    }
-
-  }
-
-
-
-  // =========================================================
-  // SELECTABLE
-  // =========================================================
-
-  function isSelectable(
-    index
-  ){
-
-    const button =
-      TITLE.buttons[
-        index
-      ];
-
-
-    if(!button){
-
-      return false;
-
-    }
-
-
-    if(
-      button.dataset.titleAction ===
-      "continue" &&
-      !TITLE.continueAvailable
-    ){
-
-      return false;
-
-    }
-
-
-    return true;
-
-  }
-
-
-
-  // =========================================================
+  // ======================================================
   // SELECTION
-  // =========================================================
+  // ======================================================
 
-  function setSelection(
-    index
-  ){
+  function updateSelection(){
 
-    const length =
-      TITLE.buttons.length;
-
-
-    if(
-      length === 0
-    ){
-      return;
-    }
-
-
-    let next =
-      index;
-
-
-    while(
-      next < 0
-    ){
-
-      next +=
-        length;
-
-    }
-
-
-    next =
-      next %
-      length;
-
-
-    /*
-      使用不可項目なら
-      次の項目へ進む
-    */
-
-    let safety =
-      0;
-
-
-    while(
-      !isSelectable(
-        next
-      ) &&
-      safety <
-      length
-    ){
-
-      next =
-        (
-          next + 1
-        ) %
-        length;
-
-      safety++;
-
-    }
-
-
-    TITLE.selection =
-      next;
-
-
-    TITLE.buttons.forEach(
+    buttons.forEach(
 
       (
         button,
-        i
+        index
       )=>{
 
-        button
-          .classList
-          .toggle(
-            "selected",
-            i === next
-          );
+        button.classList.toggle(
+          "selected",
+          index ===
+          selectedIndex
+        );
 
       }
 
@@ -536,71 +194,274 @@
 
 
 
-  function moveSelection(
-    amount
-  ){
+  function selectPrevious(){
+
+    selectedIndex--;
 
     if(
-      TITLE.transitioning
+      selectedIndex < 0
+    ){
+
+      selectedIndex =
+        buttons.length - 1;
+
+    }
+
+    updateSelection();
+
+  }
+
+
+
+  function selectNext(){
+
+    selectedIndex++;
+
+    if(
+      selectedIndex >=
+      buttons.length
+    ){
+
+      selectedIndex =
+        0;
+
+    }
+
+    updateSelection();
+
+  }
+
+
+
+  // ======================================================
+  // START EXPLORE
+  // ======================================================
+
+  function launchExplore(){
+
+    if(
+      transitionLock
     ){
       return;
     }
 
 
-    const length =
-      TITLE.buttons.length;
+    transitionLock =
+      true;
 
 
-    let next =
-      TITLE.selection;
+    clearGameKeys();
 
 
-    let safety =
-      0;
+    /*
+      story.js に実際に存在する
+      探索モード開始関数。
+    */
 
+    if(
+      typeof startExploreMode !==
+      "function"
+    ){
 
-    do{
+      console.error(
+        "startExploreMode() が見つかりません。"
+      );
 
-      next =
-        (
-          next +
-          amount +
-          length
-        ) %
-        length;
+      transitionLock =
+        false;
 
-      safety++;
+      return;
 
     }
-    while(
-      !isSelectable(
-        next
-      ) &&
-      safety <
-      length
+
+
+    startExploreMode();
+
+
+    hideOldStoryModeScreen();
+
+
+    closeTitle();
+
+  }
+
+
+
+  // ======================================================
+  // START STORY
+  // ======================================================
+
+  function launchStory(){
+
+    if(
+      transitionLock
+    ){
+      return;
+    }
+
+
+    transitionLock =
+      true;
+
+
+    clearGameKeys();
+
+
+    /*
+      story.js に実際に存在する
+      ストーリーモード開始関数。
+
+      第一章「武林の夜」から
+      開始する処理は story.js 側に任せる。
+    */
+
+    if(
+      typeof startStoryMode !==
+      "function"
+    ){
+
+      console.error(
+        "startStoryMode() が見つかりません。"
+      );
+
+      transitionLock =
+        false;
+
+      return;
+
+    }
+
+
+    startStoryMode();
+
+
+    hideOldStoryModeScreen();
+
+
+    closeTitle();
+
+  }
+
+
+
+  // ======================================================
+  // ACTIVATE
+  // ======================================================
+
+  function activateSelection(){
+
+    if(
+      selectedIndex === 0
+    ){
+
+      launchExplore();
+
+      return;
+
+    }
+
+
+    if(
+      selectedIndex === 1
+    ){
+
+      launchStory();
+
+    }
+
+  }
+
+
+
+  // ======================================================
+  // CLOSE TITLE
+  // ======================================================
+
+  function closeTitle(){
+
+    titleScreen.classList.add(
+      "hide"
     );
 
 
-    setSelection(
-      next
+    /*
+      CSSフェード終了後に
+      完全に無効化。
+    */
+
+    window.setTimeout(
+
+      ()=>{
+
+        titleActive =
+          false;
+
+
+        transitionLock =
+          false;
+
+
+        clearGameKeys();
+
+
+        titleScreen.style.display =
+          "none";
+
+
+        /*
+          念のため旧モード画面も
+          再度隠す。
+        */
+
+        hideOldStoryModeScreen();
+
+
+        /*
+          現在地バナーを再表示。
+        */
+
+        try{
+
+          if(
+            typeof showAreaBanner ===
+            "function"
+          ){
+
+            showAreaBanner();
+
+          }
+
+        }
+        catch(error){
+
+          // 何もしない
+
+        }
+
+      },
+
+      950
+
     );
 
   }
 
 
 
-  // =========================================================
-  // TITLE INPUT
-  // =========================================================
+  // ======================================================
+  // KEY DOWN
+  // ======================================================
 
-  function handleTitleKeydown(
+  function onTitleKeyDown(
     event
   ){
 
     if(
-      !TITLE.active
+      !titleActive
     ){
+
       return;
+
     }
 
 
@@ -609,18 +470,26 @@
 
 
     /*
-      タイトル表示中は
-      本編へキーイベントを渡さない。
+      タイトル画面で使用するキーは
+      game.js まで伝えない。
+
+      captureフェーズで止める。
     */
 
     if(
       [
         "arrowup",
         "arrowdown",
+        "arrowleft",
+        "arrowright",
         "w",
+        "a",
         "s",
+        "d",
         "e",
         "enter",
+        "l",
+        "h",
         " "
       ].includes(
         key
@@ -635,59 +504,68 @@
 
 
     if(
-      TITLE.transitioning
+      transitionLock
     ){
+
       return;
+
     }
 
 
     if(
       event.repeat
     ){
-      return;
-    }
-
-
-    if(
-      key ===
-      "arrowup" ||
-      key ===
-      "w"
-    ){
-
-      moveSelection(
-        -1
-      );
 
       return;
 
     }
 
 
+
+    // ------------------------------------------
+    // UP
+    // ------------------------------------------
+
     if(
-      key ===
-      "arrowdown" ||
-      key ===
-      "s"
+      key === "arrowup" ||
+      key === "w"
     ){
 
-      moveSelection(
-        1
-      );
+      selectPrevious();
 
       return;
 
     }
 
 
+
+    // ------------------------------------------
+    // DOWN
+    // ------------------------------------------
+
     if(
-      key ===
-      "e" ||
-      key ===
-      "enter"
+      key === "arrowdown" ||
+      key === "s"
     ){
 
-      activateCurrent();
+      selectNext();
+
+      return;
+
+    }
+
+
+
+    // ------------------------------------------
+    // ENTER
+    // ------------------------------------------
+
+    if(
+      key === "e" ||
+      key === "enter"
+    ){
+
+      activateSelection();
 
     }
 
@@ -695,736 +573,164 @@
 
 
 
-  // =========================================================
-  // MOUSE
-  // =========================================================
-
-  function installMouseControls(){
-
-    TITLE.buttons.forEach(
-
-      (
-        button,
-        index
-      )=>{
-
-
-        button.addEventListener(
-
-          "mouseenter",
-
-          ()=>{
-
-            if(
-              TITLE.transitioning
-            ){
-              return;
-            }
-
-
-            if(
-              !isSelectable(
-                index
-              )
-            ){
-              return;
-            }
-
-
-            setSelection(
-              index
-            );
-
-          }
-
-        );
-
-
-        button.addEventListener(
-
-          "click",
-
-          event=>{
-
-            event.preventDefault();
-
-
-            if(
-              TITLE.transitioning
-            ){
-              return;
-            }
-
-
-            if(
-              !isSelectable(
-                index
-              )
-            ){
-              return;
-            }
-
-
-            setSelection(
-              index
-            );
-
-
-            activateCurrent();
-
-          }
-
-        );
-
-
-      }
-
-    );
-
-  }
-
-
-
-  // =========================================================
-  // ACTIVATE
-  // =========================================================
-
-  function activateCurrent(){
-
-    const button =
-      TITLE.buttons[
-        TITLE.selection
-      ];
-
-
-    if(!button){
-
-      return;
-    }
-
-
-    if(
-      !isSelectable(
-        TITLE.selection
-      )
-    ){
-
-      return;
-
-    }
-
-
-    const action =
-      button.dataset.titleAction;
-
-
-    switch(
-      action
-    ){
-
-      case "new":
-
-        beginNewStory();
-
-        break;
-
-
-      case "continue":
-
-        continueStory();
-
-        break;
-
-
-      case "explore":
-
-        beginExplore();
-
-        break;
-
-    }
-
-  }
-
-
-
-  // =========================================================
-  // HIDE ORIGINAL STORY MODE SCREEN
-  // =========================================================
-
-  function hideLegacyModeScreen(){
-
-    const screen =
-      document.getElementById(
-        "storyModeScreen"
-      );
-
-
-    if(
-      screen
-    ){
-
-      screen
-        .classList
-        .add(
-          "hidden"
-        );
-
-    }
-
-  }
-
-
-
-  // =========================================================
-  // NEW STORY
-  // =========================================================
-
-  function beginNewStory(){
-
-    if(
-      TITLE.transitioning
-    ){
-      return;
-    }
-
-
-    TITLE.transitioning =
-      true;
-
-
-    clearGameKeys();
-
-
-    /*
-      既存 startStoryMode() が
-      第一章初期化を担当する。
-    */
-
-    if(
-      typeof startStoryMode ===
-      "function"
-    ){
-
-      startStoryMode();
-
-    }
-    else{
-
-      console.warn(
-        "startStoryMode() not found."
-      );
-
-    }
-
-
-    hideLegacyModeScreen();
-
-
-    playIntro(
-      ()=>{
-        enterGame();
-      }
-    );
-
-  }
-
-
-
-  // =========================================================
-  // EXPLORE
-  // =========================================================
-
-  function beginExplore(){
-
-    if(
-      TITLE.transitioning
-    ){
-      return;
-    }
-
-
-    TITLE.transitioning =
-      true;
-
-
-    clearGameKeys();
-
-
-    if(
-      typeof startExploreMode ===
-      "function"
-    ){
-
-      startExploreMode();
-
-    }
-    else{
-
-      console.warn(
-        "startExploreMode() not found."
-      );
-
-    }
-
-
-    hideLegacyModeScreen();
-
-
-    /*
-      散策モードは
-      ストーリー導入を出さず、
-      短く暗転して開始。
-    */
-
-    titleScreen
-      .classList
-      .add(
-        "title-hide"
-      );
-
-
-    setTimeout(
-
-      ()=>{
-
-        enterGame();
-
-      },
-
-      TITLE_CONFIG.fadeDuration
-
-    );
-
-  }
-
-
-
-  // =========================================================
-  // CONTINUE STORY
-  // =========================================================
-
-  function continueStory(){
-
-    if(
-      TITLE.transitioning ||
-      !TITLE.continueAvailable
-    ){
-
-      return;
-
-    }
-
-
-    TITLE.transitioning =
-      true;
-
-
-    clearGameKeys();
-
-
-    /*
-      story.js はロード時に
-      loadStory() を実行している。
-
-      念のため再ロードする。
-    */
-
-    if(
-      typeof loadStory ===
-      "function"
-    ){
-
-      loadStory();
-
-    }
-
-
-    if(
-      typeof STORY !==
-      "undefined"
-    ){
-
-      STORY.mode =
-        "story";
-
-      STORY.started =
-        true;
-
-    }
-
-
-    hideLegacyModeScreen();
-
-
-    /*
-      保存された章に応じた
-      復帰処理を行う。
-    */
-
-    restoreStoryPosition();
-
-
-    titleScreen
-      .classList
-      .add(
-        "title-hide"
-      );
-
-
-    setTimeout(
-
-      ()=>{
-
-        enterGame();
-
-      },
-
-      TITLE_CONFIG.fadeDuration
-
-    );
-
-  }
-
-
-
-  // =========================================================
-  // RESTORE STORY
-  // =========================================================
-
-  function restoreStoryPosition(){
-
-    if(
-      typeof STORY ===
-      "undefined"
-    ){
-
-      return;
-
-    }
-
-
-    const chapter =
-      Number(
-        STORY.chapter
-      ) || 1;
-
-
-    /*
-      第一章
-    */
-
-    if(
-      chapter === 1
-    ){
-
-      if(
-        typeof resetStoryNPCs ===
-        "function"
-      ){
-
-        resetStoryNPCs();
-
-      }
-
-
-      currentMapId =
-        "food";
-
-
-      player.x =
-        MAPS.food.spawn.x *
-        TILE;
-
-
-      player.y =
-        MAPS.food.spawn.y *
-        TILE;
-
-
-      player.direction =
-        "up";
-
-
-      player.moving =
-        false;
-
-
-      if(
-        typeof setChapterLabel ===
-        "function"
-      ){
-
-        setChapterLabel(
-          "第一章",
-          "武林の夜"
-        );
-
-      }
-
-
-      return;
-
-    }
-
-
-    /*
-      第2章以降については
-      各章スクリプトが持っている
-      START関数を利用する。
-
-      セーブ章に応じて
-      その章の開始地点へ戻す。
-    */
-
-
-    if(
-      chapter === 2
-    ){
-
-      /*
-        Chapter 2 は
-        story.js 内部で管理されているため
-        現在位置を武林へ戻す。
-      */
-
-      currentMapId =
-        "food";
-
-
-      player.x =
-        MAPS.food.spawn.x *
-        TILE;
-
-
-      player.y =
-        MAPS.food.spawn.y *
-        TILE;
-
-
-      player.direction =
-        "up";
-
-
-      player.moving =
-        false;
-
-
-      return;
-
-    }
-
-
-    if(
-      chapter === 3 &&
-      typeof startChapterThree ===
-      "function"
-    ){
-
-      startChapterThree();
-
-      return;
-
-    }
-
-
-    if(
-      chapter === 4 &&
-      typeof startChapterFour ===
-      "function"
-    ){
-
-      startChapterFour();
-
-      return;
-
-    }
-
-
-    if(
-      chapter === 5 &&
-      typeof startChapterFive ===
-      "function"
-    ){
-
-      startChapterFive();
-
-      return;
-
-    }
-
-
-    if(
-      chapter === 6 &&
-      typeof startChapterSix ===
-      "function"
-    ){
-
-      startChapterSix();
-
-      return;
-
-    }
-
-
-    if(
-      chapter === 7 &&
-      typeof startChapterSeven ===
-      "function"
-    ){
-
-      startChapterSeven();
-
-      return;
-
-    }
-
-
-    if(
-      chapter === 8 &&
-      typeof startChapterEight ===
-      "function"
-    ){
-
-      startChapterEight();
-
-      return;
-
-    }
-
-
-    /*
-      万一復帰関数が見つからない場合
-    */
-
-    currentMapId =
-      "food";
-
-
-    player.x =
-      MAPS.food.spawn.x *
-      TILE;
-
-
-    player.y =
-      MAPS.food.spawn.y *
-      TILE;
-
-
-    player.direction =
-      "up";
-
-
-    player.moving =
-      false;
-
-  }
-
-
-
-  // =========================================================
-  // INTRO
-  // =========================================================
-
-  function playIntro(
-    callback
+  // ======================================================
+  // KEY UP
+  // ======================================================
+
+  function onTitleKeyUp(
+    event
   ){
 
     if(
-      !introScreen
+      !titleActive
     ){
-
-      titleScreen
-        .classList
-        .add(
-          "title-hide"
-        );
-
-
-      setTimeout(
-
-        callback,
-
-        TITLE_CONFIG.fadeDuration
-
-      );
-
 
       return;
 
     }
 
 
-    introScreen
-      .classList
-      .add(
-        "show"
-      );
+    const key =
+      event.key.toLowerCase();
 
 
-    requestAnimationFrame(
+    if(
+      [
+        "arrowup",
+        "arrowdown",
+        "arrowleft",
+        "arrowright",
+        "w",
+        "a",
+        "s",
+        "d",
+        "e",
+        "enter",
+        "l",
+        "h",
+        " "
+      ].includes(
+        key
+      )
+    ){
 
-      ()=>{
+      event.preventDefault();
 
-        requestAnimationFrame(
+      event.stopImmediatePropagation();
 
-          ()=>{
+    }
 
-            introScreen
-              .classList
-              .add(
-                "play"
-              );
+
+    clearGameKeys();
+
+  }
+
+
+
+  // ======================================================
+  // MOUSE
+  // ======================================================
+
+  buttons.forEach(
+
+    (
+      button,
+      index
+    )=>{
+
+
+      button.addEventListener(
+
+        "mouseenter",
+
+        ()=>{
+
+          if(
+            !titleActive ||
+            transitionLock
+          ){
+
+            return;
 
           }
 
-        );
 
-      }
-
-    );
+          selectedIndex =
+            index;
 
 
-    titleScreen
-      .classList
-      .add(
-        "title-hide"
+          updateSelection();
+
+        }
+
       );
 
 
-    setTimeout(
+
+      button.addEventListener(
+
+        "click",
+
+        event=>{
+
+          event.preventDefault();
+
+
+          if(
+            !titleActive ||
+            transitionLock
+          ){
+
+            return;
+
+          }
+
+
+          selectedIndex =
+            index;
+
+
+          updateSelection();
+
+
+          activateSelection();
+
+        }
+
+      );
+
+
+    }
+
+  );
+
+
+
+  // ======================================================
+  // IMAGE CHECK
+  // ======================================================
+
+  const titleImage =
+    document.querySelector(
+      ".new-title-art"
+    );
+
+
+  if(
+    titleImage
+  ){
+
+    titleImage.addEventListener(
+
+      "error",
 
       ()=>{
 
-        introScreen
-          .classList
-          .remove(
-            "show"
-          );
-
-
-        setTimeout(
-
-          ()=>{
-
-            introScreen
-              .classList
-              .remove(
-                "play"
-              );
-
-
-            callback();
-
-          },
-
-          850
-
+        console.error(
+          "タイトル画像を読み込めません。assets/title/wulin-title.png を確認してください。"
         );
 
-      },
-
-      TITLE_CONFIG.introDuration
+      }
 
     );
 
@@ -1432,298 +738,71 @@
 
 
 
-  // =========================================================
-  // ENTER GAME
-  // =========================================================
+  // ======================================================
+  // HIDE LEGACY SCREEN
+  // ======================================================
 
-  function enterGame(){
+  function keepLegacyScreenHidden(){
 
-    TITLE.active =
+    if(
+      !titleActive
+    ){
+      return;
+    }
+
+
+    hideOldStoryModeScreen();
+
+  }
+
+
+
+  // ======================================================
+  // INITIALIZE
+  // ======================================================
+
+  function initializeTitle(){
+
+    titleActive =
+      true;
+
+
+    transitionLock =
       false;
 
 
-    TITLE.transitioning =
-      false;
+    selectedIndex =
+      0;
+
+
+    updateSelection();
+
+
+    /*
+      story.js は title.js より前に
+      読み込まれているので、
+      この時点では storyModeScreen が
+      作られている。
+    */
+
+    hideOldStoryModeScreen();
 
 
     clearGameKeys();
 
 
-    document.body
-      .classList
-      .remove(
-        "title-mode"
-      );
-
-
-    titleScreen
-      .classList
-      .add(
-        "title-hide"
-      );
-
-
-    hideLegacyModeScreen();
-
-
     /*
-      カメラを現在の
-      プレイヤー位置へ合わせる。
-    */
+      capture=true。
 
-    try{
-
-      if(
-        typeof updateCamera ===
-        "function"
-      ){
-
-        updateCamera();
-
-      }
-
-    }
-    catch(error){
-
-      // no-op
-
-    }
-
-
-    /*
-      エリア表示
-    */
-
-    try{
-
-      if(
-        typeof showAreaBanner ===
-        "function"
-      ){
-
-        showAreaBanner();
-
-      }
-
-    }
-    catch(error){
-
-      // no-op
-
-    }
-
-
-    stopPetals();
-
-  }
-
-
-
-  // =========================================================
-  // PETALS
-  // =========================================================
-
-  function createPetal(){
-
-    if(
-      !TITLE.active ||
-      !petalLayer
-    ){
-
-      return;
-
-    }
-
-
-    const petals =
-      petalLayer.querySelectorAll(
-        ".title-petal"
-      );
-
-
-    if(
-      petals.length >=
-      TITLE_CONFIG.maxPetals
-    ){
-
-      return;
-
-    }
-
-
-    const petal =
-      document.createElement(
-        "span"
-      );
-
-
-    petal.className =
-      "title-petal";
-
-
-    const left =
-      Math.random() *
-      100;
-
-
-    const duration =
-      8 +
-      Math.random() *
-      7;
-
-
-    const delay =
-      Math.random() *
-      .8;
-
-
-    const scale =
-      .55 +
-      Math.random() *
-      .8;
-
-
-    petal.style.left =
-      `${left}%`;
-
-
-    petal.style.animationDuration =
-      `${duration}s`;
-
-
-    petal.style.animationDelay =
-      `${delay}s`;
-
-
-    petal.style.transform =
-      `scale(${scale})`;
-
-
-    petalLayer.appendChild(
-      petal
-    );
-
-
-    setTimeout(
-
-      ()=>{
-
-        if(
-          petal.parentNode
-        ){
-
-          petal.remove();
-
-        }
-
-      },
-
-      (
-        duration +
-        delay +
-        1
-      ) *
-      1000
-
-    );
-
-  }
-
-
-
-  function startPetals(){
-
-    if(
-      !petalLayer
-    ){
-      return;
-    }
-
-
-    /*
-      最初に数枚だけ出す
-    */
-
-    for(
-      let i=0;
-      i<7;
-      i++
-    ){
-
-      setTimeout(
-
-        createPetal,
-
-        i *
-        260
-
-      );
-
-    }
-
-
-    TITLE.petalTimer =
-      setInterval(
-
-        createPetal,
-
-        TITLE_CONFIG.petalInterval
-
-      );
-
-  }
-
-
-
-  function stopPetals(){
-
-    if(
-      TITLE.petalTimer
-    ){
-
-      clearInterval(
-        TITLE.petalTimer
-      );
-
-
-      TITLE.petalTimer =
-        null;
-
-    }
-
-
-    if(
-      petalLayer
-    ){
-
-      petalLayer
-        .innerHTML =
-        "";
-
-    }
-
-  }
-
-
-
-  // =========================================================
-  // PROTECT GAME INPUT
-  // =========================================================
-
-  function protectGameInput(){
-
-    /*
-      capture=true が重要。
-
-      game.js の window keydown より先に
-      タイトル画面がイベントを受け取る。
+      game.js の keydown より先に
+      タイトル画面が入力を受け取る。
     */
 
     window.addEventListener(
 
       "keydown",
 
-      handleTitleKeydown,
+      onTitleKeyDown,
 
       true
 
@@ -1734,220 +813,38 @@
 
       "keyup",
 
-      event=>{
-
-        if(
-          !TITLE.active
-        ){
-          return;
-        }
-
-
-        const key =
-          event.key.toLowerCase();
-
-
-        if(
-          [
-            "arrowup",
-            "arrowdown",
-            "arrowleft",
-            "arrowright",
-            "w",
-            "a",
-            "s",
-            "d",
-            "e",
-            "enter",
-            "l",
-            "h",
-            " "
-          ].includes(
-            key
-          )
-        ){
-
-          event.preventDefault();
-
-          event.stopImmediatePropagation();
-
-        }
-
-
-        clearGameKeys();
-
-      },
+      onTitleKeyUp,
 
       true
 
     );
 
-  }
-
-
-
-  // =========================================================
-  // LEGACY STORY SCREEN WATCHER
-  // =========================================================
-
-  function watchLegacyScreen(){
 
     /*
-      story.js が生成する旧モード選択画面を
-      タイトル画面表示中も隠しておく。
+      他スクリプトが旧モード画面を
+      再表示した場合への保険。
     */
 
-    const observer =
-      new MutationObserver(
+    window.setInterval(
 
-        ()=>{
+      keepLegacyScreenHidden,
 
-          if(
-            TITLE.active
-          ){
-
-            hideLegacyModeScreen();
-
-          }
-
-        }
-
-      );
-
-
-    observer.observe(
-
-      document.body,
-
-      {
-        childList:
-          true,
-
-        subtree:
-          true,
-
-        attributes:
-          true,
-
-        attributeFilter:[
-          "class"
-        ]
-      }
+      500
 
     );
-
-  }
-
-
-
-  // =========================================================
-  // IMAGE ERROR
-  // =========================================================
-
-  function installImageFallback(){
-
-    const image =
-      document.querySelector(
-        ".title-visual"
-      );
-
-
-    if(!image){
-
-      return;
-
-    }
-
-
-    image.addEventListener(
-
-      "error",
-
-      ()=>{
-
-        console.warn(
-          "タイトル画像が見つかりません。assets/title/wulin-title.png を確認してください。"
-        );
-
-      }
-
-    );
-
-  }
-
-
-
-  // =========================================================
-  // INITIALIZE
-  // =========================================================
-
-  function initializeTitle(){
-
-    TITLE.active =
-      true;
-
-
-    TITLE.transitioning =
-      false;
-
-
-    document.body
-      .classList
-      .add(
-        "title-mode"
-      );
-
-
-    /*
-      story.js が生成した
-      旧モード画面を隠す。
-    */
-
-    hideLegacyModeScreen();
-
-
-    updateContinueUI();
-
-
-    /*
-      Continueが無効なら
-      最初は「はじめから」。
-    */
-
-    setSelection(
-      0
-    );
-
-
-    installMouseControls();
-
-
-    protectGameInput();
-
-
-    watchLegacyScreen();
-
-
-    installImageFallback();
-
-
-    startPetals();
-
-
-    clearGameKeys();
 
 
     console.log(
-      "杭州探索録 Title System Ver.1.0 loaded"
+      "杭州探索録 TITLE SCREEN Ver.2.0 loaded"
     );
 
   }
 
 
 
-  // =========================================================
+  // ======================================================
   // START
-  // =========================================================
+  // ======================================================
 
   initializeTitle();
 
