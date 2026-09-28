@@ -6,13 +6,14 @@
  杭州探索録
  武林夜市
 
- TITLE SCREEN Ver.2.0
+ TITLE SCREEN Ver.2.1
 
  ・探索モード
  ・ストーリーモード
  ・既存 story.js と直接連携
  ・セーブ／ロード処理は追加しない
  ・既存ゲームロジックは変更しない
+ ・ゲーム開始時にBGMを再生
 ==========================================================
 */
 
@@ -168,6 +169,52 @@
 
 
   // ======================================================
+  // BGM
+  // ======================================================
+
+  function startTitleBGM(){
+
+    /*
+      audio.js が正しく読み込まれている場合だけ
+      BGMを開始する。
+
+      audio.js が読み込まれていなくても
+      タイトル画面そのものは壊さない。
+    */
+
+    try{
+
+      if(
+        typeof startBGM ===
+        "function"
+      ){
+
+        startBGM();
+
+      }
+      else{
+
+        console.warn(
+          "TITLE SCREEN: startBGM() が見つかりません。audio.js を確認してください。"
+        );
+
+      }
+
+    }
+    catch(error){
+
+      console.warn(
+        "TITLE SCREEN: BGMの開始に失敗しました。",
+        error
+      );
+
+    }
+
+  }
+
+
+
+  // ======================================================
   // SELECTION
   // ======================================================
 
@@ -275,7 +322,19 @@
     }
 
 
+    /*
+      探索モード開始。
+    */
+
     startExploreMode();
+
+
+    /*
+      ユーザー操作をきっかけに
+      武林夜市BGMを開始。
+    */
+
+    startTitleBGM();
 
 
     hideOldStoryModeScreen();
@@ -332,7 +391,19 @@
     }
 
 
+    /*
+      ストーリーモード開始。
+    */
+
     startStoryMode();
+
+
+    /*
+      ユーザー操作をきっかけに
+      武林夜市BGMを開始。
+    */
+
+    startTitleBGM();
 
 
     hideOldStoryModeScreen();
@@ -835,7 +906,7 @@
 
 
     console.log(
-      "杭州探索録 TITLE SCREEN Ver.2.0 loaded"
+      "杭州探索録 TITLE SCREEN Ver.2.1 / BGM対応 loaded"
     );
 
   }
