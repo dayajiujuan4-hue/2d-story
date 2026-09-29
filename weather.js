@@ -1,24 +1,45 @@
 "use strict";
 
 // ======================================================
-// 杭州探索録 WEATHER SYSTEM Ver.2.0
+// 杭州探索録 WEATHER SYSTEM Ver.2.1
 //
 // 自動天候ループ
-// 晴れ → 雨 → 雨上がり → 晴れ
 //
-// デバッグ
+// ゲーム開始
+//   ↓ 30秒
+// 晴れ
+//   ↓
+// 雨（徐々に降り始める）
+//   ↓
+// 雨上がり
+//   ↓
+// 晴れ
+//   ↓ 30秒
+// 再び雨
+//
+// DEBUG
 // 1 = 晴れ
 // 2 = 雨
 // 3 = 雨上がり
-// 0 = 自動天候へ戻る
+//
+// ※ 1 / 2 / 3 を押しても
+//    自動天候ループは停止しません。
 // ======================================================
 
 (function(){
 
+  // ======================================================
+  // WEATHER TYPES
+  // ======================================================
+
   const WEATHER={
+
     CLEAR:"clear",
+
     RAIN:"rain",
+
     AFTER_RAIN:"after_rain"
+
   };
 
 
@@ -26,41 +47,39 @@
   // SETTINGS
   // ======================================================
 
-  // 自動天候を最初から有効化
-  let autoWeather=true;
-
-
-  // 各天候の継続時間（秒）
+  // 晴れは必ず30秒
   //
-  // 実際の時間は、この範囲から
-  // 毎回ランダムに決まる。
+  // ゲーム開始から30秒後に
+  // 最初の雨が降り始める。
+
+  const CLEAR_DURATION=30;
+
+
+  // 雨の長さ
   //
-  // テスト時は短くしてもOK。
+  // 毎回45～60秒の間で変化する。
 
-  const WEATHER_DURATION={
+  const RAIN_DURATION_MIN=45;
 
-    clear:{
-      min:70,
-      max:120
-    },
-
-    rain:{
-      min:55,
-      max:90
-    },
-
-    after_rain:{
-      min:45,
-      max:75
-    }
-
-  };
+  const RAIN_DURATION_MAX=60;
 
 
-  // 雨が最大量になるまでの時間
+  // 雨上がりの長さ
+  //
+  // 毎回30～45秒の間で変化する。
+
+  const AFTER_RAIN_DURATION_MIN=30;
+
+  const AFTER_RAIN_DURATION_MAX=45;
+
+
+  // 雨が本降りになるまでの時間
+
   const RAIN_FADE_IN=8;
 
+
   // 雨が止むまでの時間
+
   const RAIN_FADE_OUT=7;
 
 
@@ -72,27 +91,43 @@
     WEATHER.CLEAR;
 
 
+  // 現在の天候になってからの時間
+
   let weatherTimer=0;
 
-  let weatherDuration=0;
+
+  // 現在の天候の継続時間
+
+  let weatherDuration=
+    CLEAR_DURATION;
 
 
-  // 0～1
-  // 実際の雨の強さ
+  // 0 ～ 1
+  //
+  // 雨の強さ。
+  //
+  // 0 = 雨なし
+  // 1 = 本降り
 
   let rainIntensity=0;
 
 
-  // 雨状態を抜ける直前に使う
-
-  let rainEnding=false;
-
+  // 雨粒
 
   let rainDrops=[];
 
+
+  // 地面の波紋
+
   let ripples=[];
 
+
+  // 波紋生成タイマー
+
   let splashTimer=0;
+
+
+  // 天候表示用
 
   let noticeTimer=null;
 
@@ -155,6 +190,7 @@
       );
 
     }
+
     catch(error){
 
       return false;
@@ -170,27 +206,61 @@
 
   function chooseDuration(type){
 
-    const setting=
-      WEATHER_DURATION[type];
+    // --------------------------------------
+    // CLEAR
+    // --------------------------------------
 
+    if(
+      type===
+      WEATHER.CLEAR
+    ){
 
-    if(!setting){
-
-      return 60;
+      return CLEAR_DURATION;
 
     }
 
 
-    return randomRange(
-      setting.min,
-      setting.max
-    );
+    // --------------------------------------
+    // RAIN
+    // --------------------------------------
+
+    if(
+      type===
+      WEATHER.RAIN
+    ){
+
+      return randomRange(
+        RAIN_DURATION_MIN,
+        RAIN_DURATION_MAX
+      );
+
+    }
+
+
+    // --------------------------------------
+    // AFTER RAIN
+    // --------------------------------------
+
+    if(
+      type===
+      WEATHER.AFTER_RAIN
+    ){
+
+      return randomRange(
+        AFTER_RAIN_DURATION_MIN,
+        AFTER_RAIN_DURATION_MAX
+      );
+
+    }
+
+
+    return 30;
 
   }
 
 
   // ======================================================
-  // WEATHER STATE
+  // SET WEATHER
   // ======================================================
 
   function setWeather(
@@ -203,49 +273,30 @@
         WEATHER
       ).includes(type)
     ){
+
       return;
+
     }
 
 
-    currentWeather=type;
+    currentWeather=
+      type;
+
 
     weatherTimer=0;
+
 
     weatherDuration=
       chooseDuration(type);
 
 
-    rainEnding=false;
-
-
-    if(
-      type===WEATHER.RAIN
-    ){
-
-      ensureRainDrops();
-
-
-      // 手動切替なら
-      // すぐ雨を確認できるようにする
-
-      if(
-        options.instant===true
-      ){
-
-        rainIntensity=1;
-
-      }
-      else{
-
-        rainIntensity=0;
-
-      }
-
-    }
-
+    // --------------------------------------
+    // CLEAR
+    // --------------------------------------
 
     if(
-      type===WEATHER.CLEAR
+      type===
+      WEATHER.CLEAR
     ){
 
       rainIntensity=0;
@@ -255,8 +306,48 @@
     }
 
 
-    if(
-      type===WEATHER.AFTER_RAIN
+    // --------------------------------------
+    // RAIN
+    // --------------------------------------
+
+    else if(
+      type===
+      WEATHER.RAIN
+    ){
+
+      ensureRainDrops();
+
+
+      // デバッグキー2の場合は
+      // すぐ雨を確認できる。
+
+      if(
+        options.instant===true
+      ){
+
+        rainIntensity=1;
+
+      }
+
+      else{
+
+        // 自動天候の場合は
+        // 0から徐々に雨が強くなる。
+
+        rainIntensity=0;
+
+      }
+
+    }
+
+
+    // --------------------------------------
+    // AFTER RAIN
+    // --------------------------------------
+
+    else if(
+      type===
+      WEATHER.AFTER_RAIN
     ){
 
       rainIntensity=0;
@@ -277,6 +368,10 @@
   }
 
 
+  // ======================================================
+  // GET WEATHER
+  // ======================================================
+
   function getWeather(){
 
     return currentWeather;
@@ -285,50 +380,36 @@
 
 
   // ======================================================
-  // AUTO WEATHER
+  // NEXT WEATHER
   // ======================================================
 
-  function getNextWeather(){
+  function goToNextWeather(){
+
+    // --------------------------------------
+    // CLEAR → RAIN
+    // --------------------------------------
 
     if(
       currentWeather===
       WEATHER.CLEAR
     ){
 
-      return WEATHER.RAIN;
+      setWeather(
+        WEATHER.RAIN,
+        {
+          instant:false,
+          notice:true
+        }
+      );
 
-    }
-
-
-    if(
-      currentWeather===
-      WEATHER.RAIN
-    ){
-
-      return WEATHER.AFTER_RAIN;
-
-    }
-
-
-    return WEATHER.CLEAR;
-
-  }
-
-
-  function updateAutomaticWeather(dt){
-
-    if(!autoWeather){
 
       return;
 
     }
 
 
-    weatherTimer+=dt;
-
-
     // --------------------------------------
-    // 雨
+    // RAIN → AFTER RAIN
     // --------------------------------------
 
     if(
@@ -336,7 +417,54 @@
       WEATHER.RAIN
     ){
 
+      setWeather(
+        WEATHER.AFTER_RAIN,
+        {
+          notice:true
+        }
+      );
+
+
+      return;
+
+    }
+
+
+    // --------------------------------------
+    // AFTER RAIN → CLEAR
+    // --------------------------------------
+
+    setWeather(
+      WEATHER.CLEAR,
+      {
+        notice:true
+      }
+    );
+
+  }
+
+
+  // ======================================================
+  // AUTOMATIC WEATHER
+  // ======================================================
+
+  function updateAutomaticWeather(dt){
+
+    weatherTimer+=dt;
+
+
+    // ==================================================
+    // RAIN INTENSITY
+    // ==================================================
+
+    if(
+      currentWeather===
+      WEATHER.RAIN
+    ){
+
+      // --------------------------------------
       // 降り始め
+      // --------------------------------------
 
       if(
         weatherTimer<
@@ -353,9 +481,6 @@
 
       }
 
-
-      // 通常の雨
-
       else{
 
         rainIntensity=1;
@@ -363,7 +488,9 @@
       }
 
 
-      // 止み際
+      // --------------------------------------
+      // 雨の終盤
+      // --------------------------------------
 
       const remaining=
         weatherDuration-
@@ -374,9 +501,6 @@
         remaining<
         RAIN_FADE_OUT
       ){
-
-        rainEnding=true;
-
 
         rainIntensity=
           clamp(
@@ -391,25 +515,16 @@
     }
 
 
-    // --------------------------------------
-    // 次の天候へ
-    // --------------------------------------
+    // ==================================================
+    // NEXT WEATHER
+    // ==================================================
 
     if(
       weatherTimer>=
       weatherDuration
     ){
 
-      const next=
-        getNextWeather();
-
-
-      setWeather(
-        next,
-        {
-          notice:true
-        }
-      );
+      goToNextWeather();
 
     }
 
@@ -426,7 +541,9 @@
       typeof canvas===
       "undefined"
     ){
+
       return;
+
     }
 
 
@@ -467,6 +584,10 @@
   }
 
 
+  // ======================================================
+  // CREATE RAIN DROP
+  // ======================================================
+
   function createRainDrop(
     randomY=false
   ){
@@ -489,22 +610,27 @@
         Math.random()*
         (w+180)-90,
 
+
       y:
         randomY
         ? Math.random()*h
         : -30-Math.random()*120,
 
+
       length:
         8+
         Math.random()*15,
+
 
       speed:
         470+
         Math.random()*300,
 
+
       drift:
         55+
         Math.random()*45,
+
 
       alpha:
         .16+
@@ -515,6 +641,10 @@
   }
 
 
+  // ======================================================
+  // RESET RAIN DROP
+  // ======================================================
+
   function resetRainDrop(drop){
 
     const fresh=
@@ -524,17 +654,22 @@
     drop.x=
       fresh.x;
 
+
     drop.y=
       fresh.y;
+
 
     drop.length=
       fresh.length;
 
+
     drop.speed=
       fresh.speed;
 
+
     drop.drift=
       fresh.drift;
+
 
     drop.alpha=
       fresh.alpha;
@@ -543,48 +678,65 @@
 
 
   // ======================================================
-  // UPDATE
+  // UPDATE WEATHER
   // ======================================================
 
   function updateWeather(dt){
 
-    // 自動天候そのものは
-    // 屋内でも時間を進める。
+    // ==================================================
+    // 自動天候
+    // ==================================================
     //
-    // そのため、
-    // 店に入っている間にも
-    // 外の天候は変化する。
+    // 屋内でも時間は進む。
+    //
+    // 例えば雨のときに茶館へ入り、
+    // 長時間滞在して外へ出たら
+    // 雨上がりになっていることもある。
 
     updateAutomaticWeather(dt);
 
+
+    // ==================================================
+    // 雨以外
+    // ==================================================
 
     if(
       currentWeather!==
       WEATHER.RAIN
     ){
+
       return;
+
     }
 
 
     ensureRainDrops();
 
 
-    // 屋内では雨粒を描画しないため、
-    // 雨粒更新も停止。
+    // ==================================================
+    // INDOOR
+    // ==================================================
 
     if(
       isIndoor()
     ){
+
       return;
+
     }
 
 
     const w=
       canvas.width;
 
+
     const h=
       canvas.height;
 
+
+    // ==================================================
+    // RAIN DROP UPDATE
+    // ==================================================
 
     for(
       const drop of rainDrops
@@ -593,6 +745,7 @@
       drop.x+=
         drop.drift*
         dt;
+
 
       drop.y+=
         drop.speed*
@@ -614,7 +767,7 @@
 
 
     // ==================================================
-    // GROUND SPLASH
+    // SPLASH TIMER
     // ==================================================
 
     splashTimer-=dt;
@@ -624,9 +777,6 @@
       splashTimer<=0 &&
       rainIntensity>.08
     ){
-
-      // 雨が弱いと
-      // 波紋の発生頻度も下がる
 
       splashTimer=
         (
@@ -640,9 +790,12 @@
 
 
       const maxRipples=
-        Math.floor(
-          30*
-          rainIntensity
+        Math.max(
+          1,
+          Math.floor(
+            30*
+            rainIntensity
+          )
         );
 
 
@@ -656,16 +809,20 @@
           x:
             Math.random()*w,
 
+
           y:
             h*.48+
             Math.random()*
             h*.47,
 
+
           age:0,
+
 
           life:
             .35+
             Math.random()*.35,
+
 
           size:
             2+
@@ -677,6 +834,10 @@
 
     }
 
+
+    // ==================================================
+    // RIPPLE UPDATE
+    // ==================================================
 
     for(
       let i=
@@ -708,7 +869,7 @@
 
 
   // ======================================================
-  // DRAW
+  // DRAW WEATHER
   // ======================================================
 
   function drawWeather(time){
@@ -717,18 +878,28 @@
       typeof ctx==="undefined" ||
       typeof canvas==="undefined"
     ){
+
       return;
+
     }
 
 
-    // 屋内では描画しない
+    // ==================================================
+    // INDOOR
+    // ==================================================
 
     if(
       isIndoor()
     ){
+
       return;
+
     }
 
+
+    // ==================================================
+    // RAIN
+    // ==================================================
 
     if(
       currentWeather===
@@ -743,6 +914,10 @@
 
     }
 
+
+    // ==================================================
+    // AFTER RAIN
+    // ==================================================
 
     else if(
       currentWeather===
@@ -765,7 +940,9 @@
     if(
       rainIntensity<=0
     ){
+
       return;
+
     }
 
 
@@ -832,7 +1009,7 @@
 
 
   // ======================================================
-  // RAIN
+  // DRAW RAIN
   // ======================================================
 
   function drawRain(){
@@ -840,7 +1017,9 @@
     if(
       rainIntensity<=0
     ){
+
       return;
+
     }
 
 
@@ -848,6 +1027,7 @@
 
 
     ctx.lineWidth=1;
+
 
     ctx.lineCap=
       "round";
@@ -898,7 +1078,7 @@
 
 
   // ======================================================
-  // RIPPLES
+  // DRAW RIPPLES
   // ======================================================
 
   function drawRipples(){
@@ -906,7 +1086,9 @@
     if(
       rainIntensity<=0
     ){
+
       return;
+
     }
 
 
@@ -984,9 +1166,9 @@
       canvas.height;
 
 
-    // --------------------------------------
-    // 濡れた路面
-    // --------------------------------------
+    // ==================================================
+    // WET GROUND
+    // ==================================================
 
     const sheen=
       ctx.createLinearGradient(
@@ -1021,9 +1203,9 @@
     );
 
 
-    // --------------------------------------
-    // 夜市の光の反射
-    // --------------------------------------
+    // ==================================================
+    // LIGHT REFLECTION
+    // ==================================================
 
     ctx.globalCompositeOperation=
       "screen";
@@ -1037,7 +1219,9 @@
 
     for(
       let x=34;
+
       x<canvas.width;
+
       x+=115
     ){
 
@@ -1095,7 +1279,7 @@
 
 
   // ======================================================
-  // DEBUG NOTICE
+  // WEATHER NOTICE
   // ======================================================
 
   function showWeatherNotice(){
@@ -1188,55 +1372,7 @@
     el.textContent=
       `WEATHER : ${
         names[currentWeather]
-      }${
-        autoWeather
-        ? ""
-        : " / MANUAL"
       }`;
-
-
-    el.style.opacity=
-      "1";
-
-
-    clearTimeout(
-      noticeTimer
-    );
-
-
-    noticeTimer=
-      setTimeout(
-        ()=>{
-
-          el.style.opacity=
-            "0";
-
-        },
-        1300
-      );
-
-  }
-
-
-  function showAutoNotice(){
-
-    let el=
-      document.getElementById(
-        "weatherDebugNotice"
-      );
-
-
-    if(!el){
-
-      showWeatherNotice();
-
-      return;
-
-    }
-
-
-    el.textContent=
-      "WEATHER : AUTO";
 
 
     el.style.opacity=
@@ -1273,92 +1409,85 @@
       if(
         event.repeat
       ){
+
         return;
+
       }
 
 
-      // --------------------------------------
-      // CLEAR
-      // --------------------------------------
+      // 入力フォーム使用中は無視
+
+      const tag=
+        event.target &&
+        event.target.tagName
+        ? event.target.tagName.toLowerCase()
+        : "";
+
+
+      if(
+        tag==="input" ||
+        tag==="textarea" ||
+        tag==="select"
+      ){
+
+        return;
+
+      }
+
+
+      // ==================================================
+      // 1 = CLEAR
+      // ==================================================
 
       if(
         event.key==="1"
       ){
 
-        autoWeather=false;
-
-
         setWeather(
           WEATHER.CLEAR,
           {
-            instant:true
+            instant:true,
+            notice:true
           }
         );
 
       }
 
 
-      // --------------------------------------
-      // RAIN
-      // --------------------------------------
+      // ==================================================
+      // 2 = RAIN
+      // ==================================================
 
       else if(
         event.key==="2"
       ){
 
-        autoWeather=false;
-
-
         setWeather(
           WEATHER.RAIN,
           {
-            instant:true
+            instant:true,
+            notice:true
           }
         );
 
       }
 
 
-      // --------------------------------------
-      // AFTER RAIN
-      // --------------------------------------
+      // ==================================================
+      // 3 = AFTER RAIN
+      // ==================================================
 
       else if(
         event.key==="3"
       ){
 
-        autoWeather=false;
-
-
         setWeather(
           WEATHER.AFTER_RAIN,
           {
-            instant:true
+            instant:true,
+            notice:true
           }
         );
-
-      }
-
-
-      // --------------------------------------
-      // AUTO
-      // --------------------------------------
-
-      else if(
-        event.key==="0"
-      ){
-
-        autoWeather=true;
-
-        weatherTimer=0;
-
-        weatherDuration=
-          chooseDuration(
-            currentWeather
-          );
-
-
-        showAutoNotice();
 
       }
 
@@ -1390,49 +1519,31 @@
     drawWeather;
 
 
-  window.isAutoWeather=
-    function(){
-
-      return autoWeather;
-
-    };
-
-
-  window.enableAutoWeather=
-    function(){
-
-      autoWeather=true;
-
-      weatherTimer=0;
-
-      weatherDuration=
-        chooseDuration(
-          currentWeather
-        );
-
-    };
-
-
-  window.disableAutoWeather=
-    function(){
-
-      autoWeather=false;
-
-    };
-
-
   // ======================================================
-  // START
+  // INITIALIZE
   // ======================================================
+
+  currentWeather=
+    WEATHER.CLEAR;
+
+
+  weatherTimer=0;
+
 
   weatherDuration=
-    chooseDuration(
-      currentWeather
-    );
+    CLEAR_DURATION;
+
+
+  rainIntensity=0;
 
 
   console.log(
-    "杭州探索録 WEATHER SYSTEM Ver.2.0 loaded"
+    "杭州探索録 WEATHER SYSTEM Ver.2.1 loaded"
+  );
+
+
+  console.log(
+    "最初の雨まで30秒"
   );
 
 })();
