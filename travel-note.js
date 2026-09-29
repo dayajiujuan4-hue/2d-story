@@ -2,7 +2,7 @@
 
 // ============================================================
 // 杭州探索録
-// TRAVEL NOTE / 旅の手帳 Ver.1.0
+// TRAVEL NOTE / 旅の手帳 Ver.1.1
 //
 // Lキーで開閉
 //
@@ -10,8 +10,12 @@
 // 中央 ：収集一覧
 // 右   ：詳細・例文・発見記録
 //
-// 既存データを利用するため
-// セーブデータには干渉しない。
+// Ver.1.1
+// ・未発見語に「旅のヒント」を追加
+// ・VOCABULARY / HZ_DIALECT の location を利用
+// ・杭州话 No.20 の特殊アンロックにも対応
+//
+// 既存の収集データ・セーブデータには干渉しない。
 // ============================================================
 
 (function(){
@@ -157,6 +161,116 @@
     }
 
   };
+
+
+  // ============================================================
+  // TRAVEL HINT
+  // ============================================================
+  //
+  // vocabulary.js / dialect.js の location を読み、
+  // 未発見時の探索ヒントを生成する。
+  //
+  // 単語そのもの・意味・例文は未発見時には表示しない。
+  // ============================================================
+
+  function getTravelHint(location){
+
+    const hints={
+
+      "武林夜市":{
+        area:"武林夜市",
+        text:
+          "提灯の灯る夜市をゆっくり歩いてみましょう。店先や、そこにいる人々にも目を向けてみてください。"
+      },
+
+      "小吃街":{
+        area:"小吃街",
+        text:
+          "香ばしい匂いが漂う屋台街へ行ってみましょう。食べ物を売る店の周辺に何かありそうです。"
+      },
+
+      "杭州面馆":{
+        area:"杭州面馆",
+        text:
+          "杭州らしい麺料理を出す店を訪ねてみましょう。店内の料理や人々を調べてみてください。"
+      },
+
+      "夜市食堂":{
+        area:"夜市食堂",
+        text:
+          "夜市の食堂を訪ねてみましょう。料理や店内に、まだ知らない言葉が隠れているかもしれません。"
+      },
+
+      "西湖":{
+        area:"西湖",
+        text:
+          "夜の西湖へ足を延ばしてみましょう。湖畔の風景や、そこにいる人々を観察してみてください。"
+      },
+
+      "老杭州茶馆":{
+        area:"老杭州茶馆",
+        text:
+          "昔ながらの茶館を訪ねてみましょう。お茶や茶器、店の人の話に手がかりがありそうです。"
+      },
+
+      "杭州文化":{
+        area:"杭州文化",
+        text:
+          "杭州の歴史や文化について知ることのできる場所を探してみましょう。"
+      },
+
+      "杭州文创":{
+        area:"杭州文创",
+        text:
+          "杭州の文化をテーマにした品物が並ぶ店を覗いてみましょう。展示や商品をよく見てみてください。"
+      },
+
+      "武林百货":{
+        area:"武林百货",
+        text:
+          "武林の百貨店を訪ねてみましょう。杭州らしい商品を探すと、何か見つかるかもしれません。"
+      },
+
+      "湖滨茶室":{
+        area:"湖滨茶室",
+        text:
+          "西湖のほとりにある茶室を訪ねてみましょう。静かな店内に、文学にまつわる言葉が隠れています。"
+      },
+
+      "便利店":{
+        area:"便利店",
+        text:
+          "夜市にある便利店へ入ってみましょう。普段の暮らしで使う言葉が見つかりそうです。"
+      },
+
+      "武林":{
+        area:"武林",
+        text:
+          "武林の街を歩いてみましょう。夜市だけでなく、周囲の街並みにも目を向けてみてください。"
+      },
+
+      "杭州":{
+        area:"杭州",
+        text:
+          "杭州の街を歩き、人々や街の文化に触れてみましょう。何気ない場所にも発見があります。"
+      }
+
+    };
+
+
+    return (
+      hints[location] ||
+      {
+        area:
+          location ||
+          "杭州のどこか",
+
+        text:
+          "杭州の街を歩き、人々と話したり、気になる場所を調べてみましょう。"
+      }
+    );
+
+  }
 
 
   // ============================================================
@@ -918,9 +1032,15 @@
       }
 
 
+      /* ======================================================
+         LOCKED / HINT
+      ====================================================== */
+
       .tn-locked-detail{
 
-        height:100%;
+        min-height:100%;
+
+        box-sizing:border-box;
 
         display:flex;
 
@@ -960,6 +1080,155 @@
 
         transform:
           rotate(-4deg);
+
+      }
+
+
+      .tn-unknown-title{
+
+        font-size:18px;
+
+        color:#4c392a;
+
+        margin-bottom:2px;
+
+      }
+
+
+      .tn-unknown-en{
+
+        font-size:9px;
+
+        color:#9b876e;
+
+        letter-spacing:.18em;
+
+      }
+
+
+      .tn-hint-rule{
+
+        width:70%;
+        height:1px;
+
+        margin:
+          20px 0 18px;
+
+        background:
+          rgba(84,58,39,.18);
+
+      }
+
+
+      .tn-hint-title{
+
+        color:#9b4034;
+
+        font-size:10px;
+
+        letter-spacing:.2em;
+
+        margin-bottom:14px;
+
+      }
+
+
+      .tn-hint-area-label{
+
+        color:#91765a;
+
+        font-size:8px;
+
+        letter-spacing:.18em;
+
+      }
+
+
+      .tn-hint-area{
+
+        margin-top:4px;
+
+        color:#4c3425;
+
+        font-size:18px;
+
+        font-weight:700;
+
+      }
+
+
+      .tn-hint-mark{
+
+        width:28px;
+        height:2px;
+
+        margin:
+          11px auto;
+
+        background:#a74435;
+
+        opacity:.65;
+
+      }
+
+
+      .tn-hint-text{
+
+        max-width:350px;
+
+        font-size:12px;
+
+        line-height:2;
+
+        color:#6f5943;
+
+      }
+
+
+      .tn-uncollected{
+
+        margin-top:20px;
+
+        padding:
+          5px 13px;
+
+        border:
+          1px solid rgba(145,64,50,.25);
+
+        color:
+          rgba(145,64,50,.72);
+
+        font-size:9px;
+
+        letter-spacing:.14em;
+
+      }
+
+
+      .tn-progress-hint{
+
+        margin-top:20px;
+
+        padding:
+          7px 17px;
+
+        border:
+          1px solid rgba(154,64,52,.28);
+
+        color:#8d4b3e;
+
+        font-size:11px;
+
+      }
+
+
+      .tn-new-clue{
+
+        margin-top:20px;
+
+        color:#9b4034;
+
+        font-size:11px;
 
       }
 
@@ -1355,8 +1624,6 @@
       return;
     }
 
-
-    // 他の大きなUI表示中は開かない
 
     try{
 
@@ -1815,6 +2082,248 @@
 
 
   // ============================================================
+  // LOCKED DETAIL
+  // ============================================================
+
+  function renderLockedDetail(
+    id,
+    data,
+    detail
+  ){
+
+    // ----------------------------------------------------------
+    // 杭州话 No.20
+    // 19語集めるまでは場所を伏せる
+    // ----------------------------------------------------------
+
+    if(
+      NOTE.mode==="dialect" &&
+      data.no===20
+    ){
+
+      const count=
+        typeof collectedDialect!==
+        "undefined"
+        ? collectedDialect.length
+        : 0;
+
+
+      if(count<19){
+
+        detail.innerHTML=`
+
+          <div class="tn-locked-detail">
+
+            <div class="tn-lock-mark">
+              ？
+            </div>
+
+
+            <div class="tn-unknown-title">
+              未発見の杭州话
+            </div>
+
+
+            <div class="tn-unknown-en">
+              UNKNOWN DIALECT
+            </div>
+
+
+            <div class="tn-hint-rule">
+            </div>
+
+
+            <div class="tn-hint-title">
+              旅のヒント
+            </div>
+
+
+            <div class="tn-hint-text">
+
+              この言葉には、
+              まだ出会えないようです。
+
+              <br>
+
+              まずは杭州の街を歩き、
+              他の杭州话を集めてみましょう。
+
+            </div>
+
+
+            <div class="tn-progress-hint">
+
+              杭州话　
+
+              ${Math.min(count,19)}
+
+              / 19
+
+            </div>
+
+          </div>
+
+        `;
+
+
+        return;
+
+      }
+
+
+      // --------------------------------------------------------
+      // 19語揃った後
+      // --------------------------------------------------------
+
+      detail.innerHTML=`
+
+        <div class="tn-locked-detail">
+
+          <div class="tn-lock-mark">
+            ？
+          </div>
+
+
+          <div class="tn-unknown-title">
+            未発見の杭州话
+          </div>
+
+
+          <div class="tn-unknown-en">
+            UNKNOWN DIALECT
+          </div>
+
+
+          <div class="tn-hint-rule">
+          </div>
+
+
+          <div class="tn-hint-title">
+            旅のヒント
+          </div>
+
+
+          <div class="tn-hint-area-label">
+            DISCOVERY AREA
+          </div>
+
+
+          <div class="tn-hint-area">
+            西湖の近く
+          </div>
+
+
+          <div class="tn-hint-mark">
+          </div>
+
+
+          <div class="tn-hint-text">
+
+            杭州话を十分に集めたようです。
+
+            <br>
+
+            西湖の近くにある土産物店を
+            訪ねてみましょう。
+
+          </div>
+
+
+          <div class="tn-new-clue">
+            ◆ 新しい手がかりを発見
+          </div>
+
+        </div>
+
+      `;
+
+
+      return;
+
+    }
+
+
+    // ----------------------------------------------------------
+    // 通常の未発見語
+    // ----------------------------------------------------------
+
+    const hint=
+      getTravelHint(
+        data.location
+      );
+
+
+    detail.innerHTML=`
+
+      <div class="tn-locked-detail">
+
+        <div class="tn-lock-mark">
+          ？
+        </div>
+
+
+        <div class="tn-unknown-title">
+
+          ${
+            NOTE.mode==="vocab"
+            ? "未発見の词语"
+            : "未発見の杭州话"
+          }
+
+        </div>
+
+
+        <div class="tn-unknown-en">
+
+          ${
+            NOTE.mode==="vocab"
+            ? "UNKNOWN WORD"
+            : "UNKNOWN DIALECT"
+          }
+
+        </div>
+
+
+        <div class="tn-hint-rule">
+        </div>
+
+
+        <div class="tn-hint-title">
+          旅のヒント
+        </div>
+
+
+        <div class="tn-hint-area-label">
+          DISCOVERY AREA
+        </div>
+
+
+        <div class="tn-hint-area">
+          ${hint.area}
+        </div>
+
+
+        <div class="tn-hint-mark">
+        </div>
+
+
+        <div class="tn-hint-text">
+          ${hint.text}
+        </div>
+
+
+        <div class="tn-uncollected">
+          未収集
+        </div>
+
+      </div>
+
+    `;
+
+  }
+
+
+  // ============================================================
   // DETAIL
   // ============================================================
 
@@ -1835,64 +2344,11 @@
 
     if(!obtained){
 
-      let hint=
-        NOTE.mode==="vocab"
-        ? "杭州の街を歩き、人々と話したり、気になる場所を調べてみましょう。"
-        : "杭州の街を歩き、地元の人の言葉に耳を傾けてみましょう。";
-
-
-      if(
-        NOTE.mode==="dialect" &&
-        data.no===20
-      ){
-
-        if(
-          typeof collectedDialect!==
-            "undefined" &&
-          collectedDialect.length>=19
-        ){
-
-          hint=
-            "西湖の近くにある土産物店を訪ねてみましょう。";
-
-        }
-        else{
-
-          hint=
-            "この言葉には、まだ出会えないようです。まずは他の杭州话を集めてみましょう。";
-
-        }
-
-      }
-
-
-      detail.innerHTML=`
-
-        <div class="tn-locked-detail">
-
-          <div class="tn-lock-mark">
-            ？
-          </div>
-
-          <div>
-            まだ発見していない言葉です。
-          </div>
-
-          <div
-            style="
-              margin-top:10px;
-              font-size:11px;
-              opacity:.72;
-              max-width:330px;
-            "
-          >
-            ${hint}
-          </div>
-
-        </div>
-
-      `;
-
+      renderLockedDetail(
+        id,
+        data,
+        detail
+      );
 
       return;
 
@@ -2145,6 +2601,7 @@
           </div>
 
           <div class="tn-info-value">
+
             ${
               typeof hzStars===
               "function"
@@ -2153,6 +2610,7 @@
                   data.rarity || 1
                 )
             }
+
           </div>
 
         </div>
@@ -2206,10 +2664,6 @@
 
         if(key==="l"){
 
-          // 既存 game.js の L 処理より
-          // 先にこのイベントを処理する必要があるため
-          // capture=true で登録している。
-
           event.preventDefault();
 
           event.stopImmediatePropagation();
@@ -2245,9 +2699,9 @@
       }
 
 
-      // ----------------------------------------
-      // MODE LEFT
-      // ----------------------------------------
+      // --------------------------------------------------------
+      // CATEGORY
+      // --------------------------------------------------------
 
       if(
         key==="arrowleft" ||
@@ -2268,10 +2722,6 @@
 
       }
 
-
-      // ----------------------------------------
-      // MODE RIGHT
-      // ----------------------------------------
 
       if(
         key==="arrowright" ||
@@ -2297,9 +2747,9 @@
         getEntries();
 
 
-      // ----------------------------------------
+      // --------------------------------------------------------
       // UP
-      // ----------------------------------------
+      // --------------------------------------------------------
 
       if(
         key==="arrowup" ||
@@ -2320,9 +2770,9 @@
       }
 
 
-      // ----------------------------------------
+      // --------------------------------------------------------
       // DOWN
-      // ----------------------------------------
+      // --------------------------------------------------------
 
       if(
         key==="arrowdown" ||
@@ -2407,7 +2857,7 @@
 
 
   console.log(
-    "杭州探索録 TRAVEL NOTE Ver.1.0 loaded"
+    "杭州探索録 TRAVEL NOTE Ver.1.1 / 探索ヒント対応 loaded"
   );
 
 })();
