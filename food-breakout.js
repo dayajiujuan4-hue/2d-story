@@ -3,7 +3,7 @@
 /*
 ==========================================================
  杭州探索録
- FOOD PIXEL PUZZLE Ver.4.0
+ FOOD PIXEL PUZZLE Ver.4.1
 
  ・周回ブロック＝砲台
  ・砲台から実弾を発射
@@ -27,7 +27,7 @@ const HAND_MAX = 4;
 ============================== */
 
 /* 周回速度。小さいほど遅い */
-const ORBIT_SPEED = 0.00072;
+const ORBIT_SPEED = 0.00043;
 
 /* 発射間隔 */
 const FIRE_INTERVAL = 115;
@@ -131,13 +131,6 @@ pianerchuan:{
             jp:"スープ"
         }
     },
-
-    /*
-       前より細かい料理。
-
-       同じ食材でも明暗を分け、
-       料理として立体感を出している。
-    */
 
     pixelMap:[
 "................YYYYYYYY................",
@@ -446,13 +439,9 @@ function discoverDish(id){
 ====================================================== */
 
 let foodUIOpen = false;
-
 let selectedDish = null;
-
 let puzzle = null;
-
 let waitingForNoodleMenu = false;
-
 let raf = null;
 
 
@@ -460,8 +449,7 @@ let raf = null;
    CSS
 ====================================================== */
 
-const style =
-document.createElement("style");
+const style = document.createElement("style");
 
 style.textContent = `
 
@@ -628,12 +616,19 @@ style.textContent = `
 
 .fp-board-shell{
     position:relative;
-    min-height:500px;
+    min-height:560px;
     display:flex;
     align-items:center;
     justify-content:center;
-    overflow:hidden;
+
+    /*
+      Ver.4.0では hidden だったため、
+      周回ブロックが軌道上で切れてしまう場合があった。
+    */
+    overflow:visible;
+
     border:1px solid #705d45;
+
     background:
     radial-gradient(
         ellipse at center,
@@ -651,6 +646,7 @@ style.textContent = `
     border-radius:50%;
     border:9px solid #b9ac97;
     background:#d7d0c4;
+
     box-shadow:
     0 11px 0 #665b4f,
     0 22px 35px #0007;
@@ -669,6 +665,7 @@ style.textContent = `
     height:11px;
     box-sizing:border-box;
     border-radius:1px;
+
     box-shadow:
     inset 1px 1px #ffffff35,
     inset -1px -1px #00000040;
@@ -702,29 +699,56 @@ style.textContent = `
         transform:scale(.1);
         opacity:0;
     }
-
 }
 
 
-/* ORBIT BLOCK */
+/* ======================================
+   ORBIT GUIDE
+====================================== */
+
+.fp-orbit-guide{
+    position:absolute;
+    z-index:4;
+    pointer-events:none;
+
+    border:1px dashed #e7d8bd55;
+    border-radius:50%;
+
+    box-shadow:
+    0 0 18px #d6b77d10;
+}
+
+
+/* ======================================
+   ORBIT BLOCK / CANNON
+====================================== */
 
 #fpOrbiter{
     position:absolute;
-    z-index:20;
-    width:42px;
-    height:42px;
+    z-index:40;
+
+    width:46px;
+    height:46px;
+
     display:none;
     align-items:center;
     justify-content:center;
+
     border-radius:8px;
-    border:3px solid #ffffff88;
+    border:3px solid #fff;
+
     color:white;
     font-weight:800;
-    font-size:14px;
-    text-shadow:0 2px 3px #000;
+    font-size:15px;
+
+    text-shadow:
+    0 2px 3px #000;
+
     box-shadow:
     0 5px 0 #0006,
-    0 0 15px #ffffff30;
+    0 0 15px #ffffff55,
+    0 0 26px #ffffff20;
+
     pointer-events:none;
 }
 
@@ -737,13 +761,17 @@ style.textContent = `
 
 .fp-bullet{
     position:absolute;
-    z-index:18;
+    z-index:38;
+
     width:9px;
     height:9px;
+
     border-radius:50%;
+
     box-shadow:
     0 0 6px currentColor,
     0 0 11px currentColor;
+
     pointer-events:none;
 }
 
@@ -752,21 +780,27 @@ style.textContent = `
 
 .fp-particle{
     position:absolute;
-    z-index:19;
+    z-index:39;
+
     width:4px;
     height:4px;
-    animation:fpParticle .3s forwards;
+
+    animation:
+    fpParticle .3s forwards;
 }
 
 @keyframes fpParticle{
 
     to{
         opacity:0;
+
         transform:
-        translate(var(--x),var(--y))
+        translate(
+            var(--x),
+            var(--y)
+        )
         scale(.2);
     }
-
 }
 
 
@@ -775,9 +809,12 @@ style.textContent = `
 .fp-hand-title{
     margin-top:14px;
     margin-bottom:6px;
+
     text-align:center;
+
     font-size:10px;
     letter-spacing:.17em;
+
     color:#918573;
 }
 
@@ -790,36 +827,51 @@ style.textContent = `
 .fp-hand-slot{
     width:68px;
     height:52px;
-    border:1px solid #554e45;
+
+    border:
+    1px solid #554e45;
+
     border-radius:6px;
+
     display:flex;
     align-items:center;
     justify-content:center;
+
     color:#70695f;
+
     cursor:default;
 }
 
 .fp-hand-slot.used{
     cursor:pointer;
+
     color:white;
     font-weight:bold;
+
     box-shadow:
     inset 0 3px #ffffff30,
     0 4px #0005;
 }
 
 .fp-hand-slot.used:hover{
-    transform:translateY(-2px);
-    filter:brightness(1.1);
+    transform:
+    translateY(-2px);
+
+    filter:
+    brightness(1.1);
 }
 
 
 /* QUEUE */
 
 .fp-block-title{
-    margin:15px 0 8px;
+    margin:
+    15px 0 8px;
+
     text-align:center;
+
     color:#9f917b;
+
     font-size:11px;
 }
 
@@ -833,15 +885,24 @@ style.textContent = `
 .fp-color-block{
     width:82px;
     height:69px;
+
     border-radius:8px;
-    border:2px solid #ffffff55;
+
+    border:
+    2px solid #ffffff55;
+
     display:flex;
     flex-direction:column;
     justify-content:center;
     align-items:center;
+
     cursor:pointer;
+
     color:white;
-    text-shadow:0 2px 3px #000;
+
+    text-shadow:
+    0 2px 3px #000;
+
     box-shadow:
     inset 0 4px #ffffff30,
     inset 0 -5px #0003,
@@ -849,8 +910,11 @@ style.textContent = `
 }
 
 .fp-color-block:hover{
-    transform:translateY(-3px);
-    filter:brightness(1.12);
+    transform:
+    translateY(-3px);
+
+    filter:
+    brightness(1.12);
 }
 
 .fp-color-block.disabled{
@@ -869,9 +933,13 @@ style.textContent = `
 
 #fpMessage{
     min-height:26px;
+
     margin-top:12px;
+
     text-align:center;
+
     color:#c0b098;
+
     font-size:12px;
 }
 
@@ -880,13 +948,23 @@ style.textContent = `
 
 #fpIngredientPopup{
     position:absolute;
-    z-index:30;
+
+    z-index:50;
+
     top:16px;
     left:16px;
-    padding:8px 12px;
-    background:#111217e8;
-    border:1px solid #a584584f;
+
+    padding:
+    8px 12px;
+
+    background:
+    #111217e8;
+
+    border:
+    1px solid #a584584f;
+
     opacity:0;
+
     transition:.2s;
 }
 
@@ -909,21 +987,30 @@ style.textContent = `
 
 .fp-book-grid{
     display:grid;
+
     grid-template-columns:
-    repeat(auto-fit,minmax(190px,1fr));
+    repeat(
+        auto-fit,
+        minmax(190px,1fr)
+    );
+
     gap:11px;
 }
 
 .fp-book-card{
     min-height:120px;
+
     padding:16px;
-    border:1px solid #a68a5e4c;
+
+    border:
+    1px solid #a68a5e4c;
 }
 
 .fp-book-card.locked{
     display:flex;
     justify-content:center;
     align-items:center;
+
     color:#625e57;
 }
 
@@ -935,19 +1022,25 @@ style.textContent = `
 .fp-book-pinyin,
 .fp-book-description{
     color:#9e9280;
+
     font-size:11px;
+
     line-height:1.7;
 }
 
 .fp-result-title{
     text-align:center;
+
     color:#f0debc;
+
     font-size:38px;
 }
 
 .fp-result-cn{
     text-align:center;
+
     color:#aa8d66;
+
     margin-bottom:20px;
 }
 
@@ -1022,7 +1115,6 @@ function closeRoot(){
     root.classList.remove("open");
 
 }
-
 
 /* ======================================================
    ORDER
@@ -1288,6 +1380,8 @@ function startPuzzle(id){
 
                 eaten:false,
 
+                reserved:false,
+
                 element:null
 
             });
@@ -1345,13 +1439,14 @@ function startPuzzle(id){
 
 
 /* ======================================================
-   QUEUE
+   GAMEPLAY SYMBOL
 ====================================================== */
 
 function gameplaySymbol(symbol){
 
     /*
-      明暗違いは同じ食材として扱う。
+      Y / Y2 のような明暗違いは
+      ゲーム上では同じ食材として扱う。
     */
 
     if(symbol === "Y2")return "Y";
@@ -1365,6 +1460,10 @@ function gameplaySymbol(symbol){
 
 }
 
+
+/* ======================================================
+   QUEUE
+====================================================== */
 
 function createQueue(){
 
@@ -1399,8 +1498,10 @@ function createQueue(){
             );
 
             /*
-              少しだけ余剰値を持たせる。
-              これが手持ち発生の原因になる。
+              一部のブロックには
+              実際の残りドットより少し多めの弾数を持たせる。
+
+              この余りが「手持ち」に回る。
             */
 
             const extra =
@@ -1422,6 +1523,10 @@ function createQueue(){
         }
 
     });
+
+    /*
+      順番をシャッフル。
+    */
 
     for(let i=blocks.length-1;i>0;i--){
 
@@ -1514,6 +1619,11 @@ function renderPuzzle(){
                     grid-template-columns:
                     repeat(${cols},11px)
                     "
+                ></div>
+
+                <div
+                    id="fpOrbitGuide"
+                    class="fp-orbit-guide"
                 ></div>
 
                 <div id="fpOrbiter"></div>
@@ -1641,7 +1751,7 @@ function buildPixelBoard(){
 
 
 /* ======================================================
-   DISPLAY BLOCKS
+   PALETTE
 ====================================================== */
 
 function getPalette(symbol){
@@ -1654,6 +1764,10 @@ function getPalette(symbol){
 
 }
 
+
+/* ======================================================
+   DISPLAY BLOCKS
+====================================================== */
 
 function drawBlocks(){
 
@@ -1876,6 +1990,15 @@ function activateBlock(block,source){
         "fpOrbiter"
     );
 
+    /*
+      Ver.4.1:
+      選択直後に位置を決めてから表示する。
+      これで一瞬左上に出たり、
+      表示されない状態になるのを防ぐ。
+    */
+
+    updateOrbiterPosition();
+
     orbiter.classList.add("active");
 
     orbiter.style.background =
@@ -1918,7 +2041,10 @@ function puzzleLoop(now){
     puzzle.lastTime = now;
 
     /*
-      目で追える速度で周回。
+      Ver.4.1
+
+      以前よりかなり遅い。
+      砲台の位置を目で追える速度。
     */
 
     const oldAngle =
@@ -1936,7 +2062,9 @@ function puzzleLoop(now){
     updateOrbiterPosition();
 
     /*
-      一定間隔で射線を確認。
+      一定間隔で
+      「現在位置から撃てる同色ドット」
+      を探す。
     */
 
     if(
@@ -1958,7 +2086,7 @@ function puzzleLoop(now){
     }
 
     /*
-      ブロックを使い切った
+      ブロックを使い切った。
     */
 
     if(
@@ -1973,8 +2101,8 @@ function puzzleLoop(now){
     }
 
     /*
-      一周以上して、
-      現在撃てる場所が無い。
+      1周以上しても
+      現在の色に射線が通らない場合。
     */
 
     if(
@@ -1997,7 +2125,7 @@ function puzzleLoop(now){
     }
 
     /*
-      念のため時間上限。
+      念のための時間上限。
     */
 
     if(
@@ -2040,6 +2168,11 @@ function updateOrbiterPosition(){
         "fpOrbiter"
     );
 
+    const guide =
+    document.getElementById(
+        "fpOrbitGuide"
+    );
+
     if(
         !shell ||
         !board ||
@@ -2054,36 +2187,99 @@ function updateOrbiterPosition(){
     const br =
     board.getBoundingClientRect();
 
+    /*
+      料理ドット絵の中心。
+    */
+
     const cx =
-    br.left-sr.left+
+    br.left -
+    sr.left +
     br.width/2;
 
     const cy =
-    br.top-sr.top+
+    br.top -
+    sr.top +
     br.height/2;
 
+    /*
+      Ver.4.1の重要修正。
+
+      料理から少しだけ離れた軌道を作るが、
+      fpBoardShellの外にはみ出しすぎない。
+    */
+
+    const margin = 38;
+
+    const orbHalf = 23;
+
+    const maxRx =
+    Math.max(
+        70,
+        sr.width/2 -
+        orbHalf -
+        12
+    );
+
+    const maxRy =
+    Math.max(
+        70,
+        sr.height/2 -
+        orbHalf -
+        12
+    );
+
     const rx =
-    br.width/2+70;
+    Math.min(
+        br.width/2 + margin,
+        maxRx
+    );
 
     const ry =
-    br.height/2+64;
+    Math.min(
+        br.height/2 + margin,
+        maxRy
+    );
 
     const x =
-    cx+
-    Math.cos(puzzle.angle)*rx;
+    cx +
+    Math.cos(
+        puzzle.angle
+    )*rx;
 
     const y =
-    cy+
-    Math.sin(puzzle.angle)*ry;
+    cy +
+    Math.sin(
+        puzzle.angle
+    )*ry;
 
     orb.style.left =
-    `${x-21}px`;
+    `${x-orbHalf}px`;
 
     orb.style.top =
-    `${y-21}px`;
+    `${y-orbHalf}px`;
+
+    /*
+      薄い点線で
+      周回ルートも見えるようにする。
+    */
+
+    if(guide){
+
+        guide.style.width =
+        `${rx*2}px`;
+
+        guide.style.height =
+        `${ry*2}px`;
+
+        guide.style.left =
+        `${cx-rx}px`;
+
+        guide.style.top =
+        `${cy-ry}px`;
+
+    }
 
 }
-
 
 /* ======================================================
    LINE OF SIGHT
@@ -2114,11 +2310,13 @@ function getOrbiterCenter(){
     return {
 
         x:
-        or.left-sr.left+
+        or.left -
+        sr.left +
         or.width/2,
 
         y:
-        or.top-sr.top+
+        or.top -
+        sr.top +
         or.height/2
 
     };
@@ -2150,11 +2348,13 @@ function getPixelCenter(pixel){
     return {
 
         x:
-        pr.left-sr.left+
+        pr.left -
+        sr.left +
         pr.width/2,
 
         y:
-        pr.top-sr.top+
+        pr.top -
+        sr.top +
         pr.height/2
 
     };
@@ -2164,11 +2364,17 @@ function getPixelCenter(pixel){
 
 /*
 ==========================================================
- 重要：
- 「外周判定」ではなく実際の射線で判定。
+ 射線判定
 
- 砲台から対象へ線を引き、
- その線上で最初にぶつかる生きたピクセルを調べる。
+ 砲台から対象ドットへ向かって
+ 実際に線を進める。
+
+ 奥に赤があっても、
+ 手前に黄色があれば黄色が先にヒットする。
+
+   ● → → → 🟨 🟥
+
+ この場合、赤は撃てない。
 ==========================================================
 */
 
@@ -2178,13 +2384,18 @@ function firstPixelOnRay(
 ){
 
     const dx =
-    target.x-start.x;
+    target.x -
+    start.x;
 
     const dy =
-    target.y-start.y;
+    target.y -
+    start.y;
 
     const distance =
-    Math.hypot(dx,dy);
+    Math.hypot(
+        dx,
+        dy
+    );
 
     if(distance === 0){
         return null;
@@ -2197,21 +2408,24 @@ function firstPixelOnRay(
     dy/distance;
 
     /*
-      4px刻みでレイを進める。
+      3px刻みに変更。
+
+      11pxのドットに対して十分細かく、
+      隙間をすり抜けにくくする。
     */
 
     for(
         let d=8;
         d<distance+7;
-        d+=4
+        d+=3
     ){
 
         const x =
-        start.x+
+        start.x +
         ux*d;
 
         const y =
-        start.y+
+        start.y +
         uy*d;
 
         const hit =
@@ -2231,6 +2445,10 @@ function firstPixelOnRay(
 }
 
 
+/* ======================================================
+   PIXEL COLLISION
+====================================================== */
+
 function findPixelAtScreenPoint(
     x,
     y
@@ -2241,12 +2459,17 @@ function findPixelAtScreenPoint(
         "fpBoardShell"
     );
 
-    if(!shell)return null;
+    if(!shell){
+        return null;
+    }
 
     const sr =
     shell.getBoundingClientRect();
 
-    for(const pixel of puzzle.pixels){
+    for(
+        const pixel of
+        puzzle.pixels
+    ){
 
         if(
             pixel.eaten ||
@@ -2260,16 +2483,28 @@ function findPixelAtScreenPoint(
         .getBoundingClientRect();
 
         const left =
-        r.left-sr.left;
+        r.left -
+        sr.left;
 
         const top =
-        r.top-sr.top;
+        r.top -
+        sr.top;
+
+        /*
+          少し内側で判定する。
+
+          ドットの角ギリギリを
+          弾がかすっただけで
+          遮られる現象を減らす。
+        */
+
+        const inset = 1;
 
         if(
-            x>=left &&
-            x<=left+r.width &&
-            y>=top &&
-            y<=top+r.height
+            x >= left + inset &&
+            x <= left + r.width - inset &&
+            y >= top + inset &&
+            y <= top + r.height - inset
         ){
             return pixel;
         }
@@ -2288,6 +2523,7 @@ function findPixelAtScreenPoint(
 function findShootableTarget(){
 
     if(
+        !puzzle ||
         !puzzle.activeBlock
     ){
         return null;
@@ -2303,12 +2539,22 @@ function findShootableTarget(){
     const wanted =
     puzzle.activeBlock.symbol;
 
+    /*
+      選択中の色だけを候補にする。
+    */
+
     const candidates =
     puzzle.pixels
     .filter(p=>
+
         !p.eaten &&
-        gameplaySymbol(p.symbol)
-        === wanted
+
+        !p.reserved &&
+
+        gameplaySymbol(
+            p.symbol
+        ) === wanted
+
     );
 
     let best = null;
@@ -2316,12 +2562,24 @@ function findShootableTarget(){
     let bestDistance =
     Infinity;
 
-    for(const pixel of candidates){
+    for(
+        const pixel of
+        candidates
+    ){
 
         const target =
-        getPixelCenter(pixel);
+        getPixelCenter(
+            pixel
+        );
 
-        if(!target)continue;
+        if(!target){
+            continue;
+        }
+
+        /*
+          このドットへ向かって
+          レイを飛ばす。
+        */
 
         const first =
         firstPixelOnRay(
@@ -2330,8 +2588,9 @@ function findShootableTarget(){
         );
 
         /*
-          対象自身が最初の衝突物なら、
-          射線が通っている。
+          最初にぶつかったものが
+          その対象自身なら、
+          外から見えている。
         */
 
         if(first !== pixel){
@@ -2340,11 +2599,25 @@ function findShootableTarget(){
 
         const distance =
         Math.hypot(
-            target.x-start.x,
-            target.y-start.y
+            target.x -
+            start.x,
+
+            target.y -
+            start.y
         );
 
-        if(distance < bestDistance){
+        /*
+          見えている候補の中で
+          砲台に近いものから撃つ。
+
+          これによって外側から
+          削っている感覚が強くなる。
+        */
+
+        if(
+            distance <
+            bestDistance
+        ){
 
             bestDistance =
             distance;
@@ -2368,6 +2641,7 @@ function findShootableTarget(){
 function fireBullet(target){
 
     if(
+        !puzzle ||
         !puzzle.activeBlock ||
         puzzle.activeBlock.amount <= 0
     ){
@@ -2375,8 +2649,8 @@ function fireBullet(target){
     }
 
     /*
-      発射時点で1発予約する。
-      同じマスへの大量同時射撃を防ぐ。
+      同じドットへ
+      複数の弾を同時発射しない。
     */
 
     if(target.reserved){
@@ -2389,11 +2663,17 @@ function fireBullet(target){
     getOrbiterCenter();
 
     const end =
-    getPixelCenter(target);
+    getPixelCenter(
+        target
+    );
 
-    if(!start || !end){
+    if(
+        !start ||
+        !end
+    ){
 
-        target.reserved = false;
+        target.reserved =
+        false;
 
         return;
     }
@@ -2403,8 +2683,18 @@ function fireBullet(target){
         "fpBoardShell"
     );
 
+    if(!shell){
+
+        target.reserved =
+        false;
+
+        return;
+    }
+
     const bullet =
-    document.createElement("div");
+    document.createElement(
+        "div"
+    );
 
     bullet.className =
     "fp-bullet";
@@ -2413,6 +2703,10 @@ function fireBullet(target){
     getPalette(
         puzzle.activeBlock.symbol
     );
+
+    /*
+      弾は選択した食材色。
+    */
 
     bullet.style.background =
     data.color;
@@ -2426,55 +2720,69 @@ function fireBullet(target){
     bullet.style.top =
     `${start.y-4}px`;
 
-    shell.appendChild(bullet);
+    shell.appendChild(
+        bullet
+    );
 
     const dx =
-    end.x-start.x;
+    end.x -
+    start.x;
 
     const dy =
-    end.y-start.y;
+    end.y -
+    start.y;
 
     const distance =
-    Math.hypot(dx,dy);
+    Math.hypot(
+        dx,
+        dy
+    );
 
     const duration =
     Math.max(
         70,
-        distance/
-        BULLET_SPEED*
+
+        distance /
+        BULLET_SPEED *
         1000
     );
 
     const started =
     performance.now();
 
+    /*
+      弾を飛ばす。
+    */
+
     function fly(now){
 
         if(
             !puzzle ||
-            !puzzle.busy
+            !puzzle.busy ||
+            !puzzle.activeBlock
         ){
 
             bullet.remove();
 
-            target.reserved = false;
+            target.reserved =
+            false;
 
             return;
-
         }
 
         const t =
         Math.min(
             1,
-            (now-started)/duration
+            (now-started) /
+            duration
         );
 
         const x =
-        start.x+
+        start.x +
         dx*t;
 
         const y =
-        start.y+
+        start.y +
         dy*t;
 
         bullet.style.left =
@@ -2484,10 +2792,10 @@ function fireBullet(target){
         `${y-4}px`;
 
         /*
-          飛行中にも衝突を見る。
+          飛行中にも
+          実際の衝突をチェック。
 
-          これにより途中のドットを
-          すり抜けない。
+          見た目だけの弾ではない。
         */
 
         const hit =
@@ -2500,44 +2808,102 @@ function fireBullet(target){
 
             bullet.remove();
 
-            target.reserved = false;
+            target.reserved =
+            false;
 
             /*
-              最初にぶつかったものが
-              狙った色なら破壊。
-
-              別色なら弾はそこで消える。
+              選択色と
+              最初にぶつかった色が同じなら破壊。
             */
 
             if(
-                gameplaySymbol(hit.symbol)
+                gameplaySymbol(
+                    hit.symbol
+                )
                 ===
                 puzzle.activeBlock.symbol
             ){
 
-                hitPixel(hit);
+                hitPixel(
+                    hit
+                );
+
+            }else{
+
+                /*
+                  別色なら遮られる。
+
+                  弾だけ消える。
+                  相手のドットは壊れない。
+                */
+
+                blockedShotEffect(
+                    hit
+                );
 
             }
 
             return;
-
         }
 
         if(t >= 1){
 
             bullet.remove();
 
-            target.reserved = false;
+            target.reserved =
+            false;
 
             return;
-
         }
 
-        requestAnimationFrame(fly);
+        requestAnimationFrame(
+            fly
+        );
 
     }
 
-    requestAnimationFrame(fly);
+    requestAnimationFrame(
+        fly
+    );
+
+}
+
+
+/* ======================================================
+   BLOCKED SHOT EFFECT
+====================================================== */
+
+function blockedShotEffect(pixel){
+
+    if(
+        !pixel ||
+        !pixel.element
+    ){
+        return;
+    }
+
+    /*
+      遮られた時は
+      ごく短く光らせるだけ。
+      破壊はしない。
+    */
+
+    pixel.element.style.filter =
+    "brightness(1.6)";
+
+    setTimeout(()=>{
+
+        if(
+            pixel.element &&
+            !pixel.eaten
+        ){
+
+            pixel.element.style.filter =
+            "";
+
+        }
+
+    },80);
 
 }
 
@@ -2549,24 +2915,36 @@ function fireBullet(target){
 function hitPixel(pixel){
 
     if(
+        !pixel ||
         pixel.eaten ||
+        !puzzle ||
         !puzzle.activeBlock ||
         puzzle.activeBlock.amount <= 0
     ){
         return;
     }
 
-    pixel.eaten = true;
+    pixel.eaten =
+    true;
+
+    pixel.reserved =
+    false;
 
     puzzle.activeBlock.amount--;
 
     puzzle.shotsThisRun++;
 
+    /*
+      カッ！と弾ける。
+    */
+
     pixel.element.classList.add(
         "hit"
     );
 
-    createParticles(pixel);
+    createParticles(
+        pixel
+    );
 
     setTimeout(()=>{
 
@@ -2589,7 +2967,7 @@ function hitPixel(pixel){
     );
 
     /*
-      全消し判定
+      全消し。
     */
 
     if(
@@ -2598,13 +2976,19 @@ function hitPixel(pixel){
         )
     ){
 
-        puzzle.over = true;
+        puzzle.over =
+        true;
 
-        puzzle.busy = false;
+        puzzle.busy =
+        false;
 
         if(raf){
-            cancelAnimationFrame(raf);
+            cancelAnimationFrame(
+                raf
+            );
         }
+
+        hideOrbiter();
 
         setTimeout(
             showComplete,
@@ -2646,10 +3030,16 @@ function createParticles(pixel){
         pixel.symbol
     ];
 
-    for(let i=0;i<4;i++){
+    for(
+        let i=0;
+        i<5;
+        i++
+    ){
 
         const p =
-        document.createElement("div");
+        document.createElement(
+            "div"
+        );
 
         p.className =
         "fp-particle";
@@ -2659,27 +3049,35 @@ function createParticles(pixel){
 
         p.style.left =
         `${
-            pr.left-sr.left+
+            pr.left -
+            sr.left +
             pr.width/2
         }px`;
 
         p.style.top =
         `${
-            pr.top-sr.top+
+            pr.top -
+            sr.top +
             pr.height/2
         }px`;
 
         p.style.setProperty(
             "--x",
-            `${(Math.random()-.5)*38}px`
+            `${
+                (Math.random()-.5)*42
+            }px`
         );
 
         p.style.setProperty(
             "--y",
-            `${(Math.random()-.5)*38}px`
+            `${
+                (Math.random()-.5)*42
+            }px`
         );
 
-        shell.appendChild(p);
+        shell.appendChild(
+            p
+        );
 
         setTimeout(
             ()=>p.remove(),
@@ -2697,7 +3095,12 @@ function createParticles(pixel){
 
 function finishActiveBlock(){
 
-    if(!puzzle)return;
+    if(
+        !puzzle ||
+        !puzzle.activeBlock
+    ){
+        return;
+    }
 
     const data =
     getPalette(
@@ -2710,9 +3113,11 @@ function finishActiveBlock(){
 
     hideOrbiter();
 
-    puzzle.activeBlock = null;
+    puzzle.activeBlock =
+    null;
 
-    puzzle.busy = false;
+    puzzle.busy =
+    false;
 
     drawBlocks();
 
@@ -2744,16 +3149,19 @@ function storeActiveBlock(){
         finishActiveBlock();
 
         return;
-
     }
 
     const data =
-    getPalette(block.symbol);
+    getPalette(
+        block.symbol
+    );
 
     hideOrbiter();
 
     /*
-      手持ちが既に4つならGAME OVER。
+      4枠が埋まっている状態で
+      さらに余りが発生したら
+      GAME OVER。
     */
 
     if(
@@ -2761,11 +3169,14 @@ function storeActiveBlock(){
         HAND_MAX
     ){
 
-        puzzle.over = true;
+        puzzle.over =
+        true;
 
-        puzzle.busy = false;
+        puzzle.busy =
+        false;
 
-        puzzle.activeBlock = null;
+        puzzle.activeBlock =
+        null;
 
         setMessage(
             "手持ちがいっぱいだ！"
@@ -2777,8 +3188,12 @@ function storeActiveBlock(){
         );
 
         return;
-
     }
+
+    /*
+      使い切れなかったブロックを
+      手持ちに保存。
+    */
 
     puzzle.hand.push({
 
@@ -2794,9 +3209,11 @@ function storeActiveBlock(){
         `${data.name} ${block.amount} はまだ届かない。手持ちへ。`
     );
 
-    puzzle.activeBlock = null;
+    puzzle.activeBlock =
+    null;
 
-    puzzle.busy = false;
+    puzzle.busy =
+    false;
 
     drawHand();
 
@@ -2814,7 +3231,13 @@ function storeActiveBlock(){
 function hideOrbiter(){
 
     if(raf){
-        cancelAnimationFrame(raf);
+
+        cancelAnimationFrame(
+            raf
+        );
+
+        raf = null;
+
     }
 
     const orb =
@@ -2839,6 +3262,10 @@ function hideOrbiter(){
 
 function checkQueueState(){
 
+    if(!puzzle){
+        return;
+    }
+
     if(
         puzzle.pixels.every(
             p=>p.eaten
@@ -2848,23 +3275,17 @@ function checkQueueState(){
         showComplete();
 
         return;
-
     }
 
     /*
-      新規ブロックが無くても
-      手持ちがあれば続行。
+      新しいブロックがなくても
+      手持ちがあればゲーム続行。
     */
 
     if(
         puzzle.queue.length === 0 &&
         puzzle.hand.length === 0
     ){
-
-        /*
-          残った料理がある場合は
-          残数に応じた救済ブロックを作る。
-        */
 
         createRemainingBlocks();
 
@@ -2884,11 +3305,15 @@ function createRemainingBlocks(){
     const counts = {};
 
     puzzle.pixels
-    .filter(p=>!p.eaten)
+    .filter(
+        p=>!p.eaten
+    )
     .forEach(p=>{
 
         const s =
-        gameplaySymbol(p.symbol);
+        gameplaySymbol(
+            p.symbol
+        );
 
         counts[s] =
         (counts[s] || 0)+1;
@@ -2897,17 +3322,19 @@ function createRemainingBlocks(){
 
     puzzle.queue =
     Object.entries(counts)
-    .map(([symbol,count])=>({
+    .map(
+        ([symbol,count])=>({
 
-        symbol,
+            symbol,
 
-        amount:
-        Math.min(
-            count,
-            16
-        )
+            amount:
+            Math.min(
+                count,
+                16
+            )
 
-    }));
+        })
+    );
 
 }
 
@@ -2925,6 +3352,7 @@ function updateOrbiterNumber(){
 
     if(
         orb &&
+        puzzle &&
         puzzle.activeBlock
     ){
 
@@ -2942,15 +3370,21 @@ function updateOrbiterNumber(){
 
 function updateProgress(){
 
+    if(!puzzle){
+        return;
+    }
+
     const eaten =
     puzzle.pixels
-    .filter(p=>p.eaten)
+    .filter(
+        p=>p.eaten
+    )
     .length;
 
     const percent =
     Math.round(
-        eaten/
-        puzzle.originalCount*
+        eaten /
+        puzzle.originalCount *
         100
     );
 
@@ -2965,17 +3399,20 @@ function updateProgress(){
     );
 
     if(text){
+
         text.textContent =
         `${percent}%`;
+
     }
 
     if(fill){
+
         fill.style.width =
         `${percent}%`;
+
     }
 
 }
-
 
 /* ======================================================
    INGREDIENT
@@ -2985,7 +3422,9 @@ let popupTimer = null;
 
 function showIngredient(symbol){
 
-    if(!puzzle)return;
+    if(!puzzle){
+        return;
+    }
 
     const data =
     puzzle.dish.palette[symbol]
@@ -2997,7 +3436,12 @@ function showIngredient(symbol){
         "fpIngredientPopup"
     );
 
-    if(!popup || !data)return;
+    if(
+        !popup ||
+        !data
+    ){
+        return;
+    }
 
     popup.innerHTML = `
 
@@ -3013,9 +3457,13 @@ function showIngredient(symbol){
 
     `;
 
-    popup.classList.add("show");
+    popup.classList.add(
+        "show"
+    );
 
-    clearTimeout(popupTimer);
+    clearTimeout(
+        popupTimer
+    );
 
     popupTimer =
     setTimeout(()=>{
@@ -3053,6 +3501,10 @@ function setMessage(text){
 
 function showComplete(){
 
+    if(!puzzle){
+        return;
+    }
+
     const id =
     puzzle.dishId;
 
@@ -3060,6 +3512,8 @@ function showComplete(){
     puzzle.dish;
 
     discoverDish(id);
+
+    hideOrbiter();
 
     root.innerHTML = `
 
@@ -3118,13 +3572,19 @@ function showComplete(){
 
     `;
 
-    document.getElementById("fpAgain").onclick =
+    document.getElementById(
+        "fpAgain"
+    ).onclick =
     ()=>startPuzzle(id);
 
-    document.getElementById("fpCompleteBook").onclick =
+    document.getElementById(
+        "fpCompleteBook"
+    ).onclick =
     showFoodBook;
 
-    document.getElementById("fpReturn").onclick =
+    document.getElementById(
+        "fpReturn"
+    ).onclick =
     closeRoot;
 
 }
@@ -3136,8 +3596,14 @@ function showComplete(){
 
 function showFail(){
 
+    if(!puzzle){
+        return;
+    }
+
     const id =
     puzzle.dishId;
+
+    hideOrbiter();
 
     root.innerHTML = `
 
@@ -3163,7 +3629,7 @@ function showFail(){
                 周回する砲台から料理を見て、
                 球が届く色から崩していきましょう。
 
-                <br>
+                <br><br>
 
                 奥にある色は、
                 手前の料理に遮られて撃てません。
@@ -3194,10 +3660,14 @@ function showFail(){
 
     `;
 
-    document.getElementById("fpRetry").onclick =
+    document.getElementById(
+        "fpRetry"
+    ).onclick =
     ()=>startPuzzle(id);
 
-    document.getElementById("fpFailMenu").onclick =
+    document.getElementById(
+        "fpFailMenu"
+    ).onclick =
     showMenu;
 
 }
@@ -3217,11 +3687,15 @@ function showFoodBook(){
     Object.entries(DISHES)
     .map(([id,d])=>{
 
-        if(!discovered.includes(id)){
+        if(
+            !discovered.includes(id)
+        ){
 
             return `
 
-            <div class="fp-book-card locked">
+            <div
+                class="fp-book-card locked"
+            >
                 ？？？
             </div>
 
@@ -3269,11 +3743,15 @@ function showFoodBook(){
             </h2>
 
             <div class="fp-subtitle">
+
                 CHINESE FOOD COLLECTION
-               　
+
+                　
+
                 ${discovered.length}
                 /
                 ${Object.keys(DISHES).length}
+
             </div>
 
             <div class="fp-book-grid">
@@ -3300,7 +3778,9 @@ function showFoodBook(){
 
     `;
 
-    document.getElementById("fpBookBack").onclick =
+    document.getElementById(
+        "fpBookBack"
+    ).onclick =
     showOrderQuestion;
 
 }
@@ -3314,12 +3794,28 @@ window.addEventListener(
 "keydown",
 event=>{
 
-    if(!foodUIOpen)return;
+    if(!foodUIOpen){
+        return;
+    }
+
+    /*
+      ミニゲーム中は
+      本編側にキー入力を渡さない。
+    */
 
     event.preventDefault();
+
     event.stopImmediatePropagation();
 
-    if(event.key === "Escape"){
+    if(
+        event.key ===
+        "Escape"
+    ){
+
+        /*
+          砲台が動いている最中は
+          誤操作防止のため閉じない。
+        */
 
         if(
             puzzle &&
@@ -3329,9 +3825,13 @@ event=>{
         }
 
         if(puzzle){
+
             showMenu();
+
         }else{
+
             closeRoot();
+
         }
 
     }
@@ -3345,6 +3845,16 @@ true
    NOODLE SHOP CONNECTION
 ====================================================== */
 
+/*
+  story.jsなどによる
+  advanceDialogueの上書き後に
+  food-breakout.jsを読み込むこと。
+
+  面館の老板との通常会話が
+  最後まで終了した時だけ
+  注文画面を開く。
+*/
+
 if(
     typeof advanceDialogue ===
     "function"
@@ -3356,7 +3866,8 @@ if(
     advanceDialogue =
     function(){
 
-        let shouldOpen = false;
+        let shouldOpen =
+        false;
 
         try{
 
@@ -3372,6 +3883,11 @@ if(
                 dialogue.npc.dialogue.length-1
             ){
 
+                /*
+                  ストーリーモード中には
+                  自動で料理ゲームを開かない。
+                */
+
                 if(
                     typeof STORY ===
                     "undefined"
@@ -3380,7 +3896,8 @@ if(
                     "story"
                 ){
 
-                    shouldOpen = true;
+                    shouldOpen =
+                    true;
 
                 }
 
@@ -3392,7 +3909,8 @@ if(
 
         if(shouldOpen){
 
-            waitingForNoodleMenu = true;
+            waitingForNoodleMenu =
+            true;
 
             waitForDialogueEnd();
 
@@ -3409,9 +3927,14 @@ if(
 
 function waitForDialogueEnd(){
 
-    if(!waitingForNoodleMenu)return;
+    if(
+        !waitingForNoodleMenu
+    ){
+        return;
+    }
 
-    let blocked = false;
+    let blocked =
+    false;
 
     try{
 
@@ -3450,10 +3973,10 @@ function waitForDialogueEnd(){
         );
 
         return;
-
     }
 
-    waitingForNoodleMenu = false;
+    waitingForNoodleMenu =
+    false;
 
     showOrderQuestion();
 
@@ -3474,8 +3997,12 @@ window.FOOD_DISHES =
 DISHES;
 
 
+/* ======================================================
+   DEBUG / VERSION
+====================================================== */
+
 console.log(
-"杭州探索録 FOOD PIXEL PUZZLE Ver.4.0 loaded"
+    "杭州探索録 FOOD PIXEL PUZZLE Ver.4.1 loaded"
 );
 
 })();
