@@ -3,47 +3,43 @@
 /*
 ==========================================================
  杭州探索録
- FOOD PIXEL PUZZLE Ver.2.0
+ FOOD PIXEL PUZZLE Ver.3.0
 
- 杭州面館
- ・料理注文
- ・料理ピクセルパズル
+ ・杭州面館 料理注文
+ ・外周侵食型カラーパズル
+ ・周回ブロックアニメーション
+ ・高速連続破壊
+ ・TRAYシステム
  ・料理図鑑
- ・料理図鑑セーブ
-
- 前Ver.のボール式ブロック崩しから全面変更
 ==========================================================
 */
 
 (function(){
 
-  const FOOD_SAVE_KEY =
-    "hangzhouFoodBookV1";
+  const FOOD_SAVE_KEY = "hangzhouFoodBookV1";
 
   const SLOT_MAX = 5;
 
+  // 破壊速度
+  const DESTROY_INTERVAL = 55;
+
+  // 外周を探す演出時間
+  const SEARCH_TIME = 650;
+
+  // 周回速度
+  const ORBIT_SPEED = 0.009;
+
   let foodUIOpen = false;
   let selectedDish = null;
-
   let puzzle = null;
-
   let waitingForNoodleMenu = false;
+
+  let animationFrame = null;
 
 
   // ======================================================
   // DISH DATA
   // ======================================================
-
-  /*
-    pixelMap
-
-    . = 空白
-
-    料理を構成する記号は、
-    palette の色と対応する。
-
-    plate は皿なのでゲーム対象外。
-  */
 
   const DISHES = {
 
@@ -60,26 +56,10 @@
         "雪菜・筍・豚肉などを使う、杭州を代表する麺料理の一つ。",
 
       ingredients:[
-        {
-          name:"面",
-          pinyin:"miàn",
-          jp:"麺"
-        },
-        {
-          name:"雪菜",
-          pinyin:"xuěcài",
-          jp:"漬け菜"
-        },
-        {
-          name:"笋",
-          pinyin:"sǔn",
-          jp:"たけのこ"
-        },
-        {
-          name:"猪肉",
-          pinyin:"zhūròu",
-          jp:"豚肉"
-        }
+        {name:"面",pinyin:"miàn",jp:"麺"},
+        {name:"雪菜",pinyin:"xuěcài",jp:"漬け菜"},
+        {name:"笋",pinyin:"sǔn",jp:"たけのこ"},
+        {name:"猪肉",pinyin:"zhūròu",jp:"豚肉"}
       ],
 
       palette:{
@@ -126,25 +106,32 @@
 
       },
 
+      /*
+        外側の麺を削らないと
+        中央の具材に届きにくい構造。
+      */
+
       pixelMap:[
 
-        "........YYYYYY........",
+        ".........YYYY.........",
+        ".......YYYYYYYY.......",
         "......YYYYYYYYYY......",
-        ".....YYYGGGGYYYYY.....",
-        "....YYGGGGGGGYYYYY....",
-        "...YYYGGGGGGGYYYYYY...",
-        "..YYYYYYYYYYYYYYYYYY..",
-        ".YYYYBBBBYYYYRRRRYYYY.",
-        "YYYYBBBBBBYYRRRRRRYYYY",
-        "YYYBBBBBBYYYRRRRRRYYYY",
-        "YYYYBBBBYYYYRRRRYYYYYY",
-        "YYYYYYYYYYYYYYYYYYYYYY",
-        ".YYYSSSSYYYYSSSSYYYYY.",
-        "..YYSSSSSSSSSSSSYYYY..",
-        "...YYYSSSSSSSSYYYYY...",
+        "....YYYYYYYYYYYYYY....",
+        "...YYYYGGGGGGYYYYYY...",
+        "..YYYYGGGGGGGGYYYYYY..",
+        ".YYYYGGGBBBGGGYYYYYYY.",
+        "YYYYYGBBBBBBGYYYYYYYYY",
+        "YYYYGBBRRRRBBGYYYYYYYY",
+        "YYYYGBRRRRRRGYYYYYYYYY",
+        "YYYYGBRRRRRRGYYYYYYYYY",
+        "YYYYGBBRRRRBBGYYYYYYYY",
+        ".YYYYGGBBBBGGYYYYYYYY.",
+        "..YYYYGGGGGGYYYYYYYY..",
+        "...YYYYSSSSYYYYYYYY...",
         "....YYYYSSSSYYYYYY....",
         "......YYYYYYYYYY......",
-        "........YYYYYY........"
+        ".......YYYYYYYY.......",
+        ".........YYYY........."
 
       ]
 
@@ -164,26 +151,10 @@
         "エビとタウナギを使った杭州の名物麺。香ばしく炒めた具材と麺を合わせる。",
 
       ingredients:[
-        {
-          name:"面",
-          pinyin:"miàn",
-          jp:"麺"
-        },
-        {
-          name:"虾",
-          pinyin:"xiā",
-          jp:"エビ"
-        },
-        {
-          name:"鳝鱼",
-          pinyin:"shànyú",
-          jp:"タウナギ"
-        },
-        {
-          name:"葱",
-          pinyin:"cōng",
-          jp:"ネギ"
-        }
+        {name:"面",pinyin:"miàn",jp:"麺"},
+        {name:"虾",pinyin:"xiā",jp:"エビ"},
+        {name:"鳝鱼",pinyin:"shànyú",jp:"タウナギ"},
+        {name:"葱",pinyin:"cōng",jp:"ネギ"}
       ],
 
       palette:{
@@ -232,22 +203,24 @@
 
       pixelMap:[
 
-        "........YYYYYY........",
-        "......YYYYYYYYYY......",
-        "....YYYGGGGGGYYYYY....",
-        "...YYGGGGGGGGYYYYYY...",
-        "..YYYYYYYYYYYYYYYYYY..",
-        ".YYYYOOOOYYYYDDDDYYYY.",
-        "YYYOOOOOOYYDDDDDDYYYY",
-        "YYOOOOOOOYYDDDDDDDYYY",
-        "YYYOOOOOYYYYDDDDDYYYY",
-        "YYYYYYYYYYYYYYYYYYYYYY",
-        "YYYSSSSYYYYYYSSSSYYYY",
-        ".YYSSSSSSSSSSSSSSYYY.",
-        "..YYYSSSSSSSSSSYYYY..",
-        "...YYYYSSSSSSYYYYY...",
+        ".........YYYY.........",
+        ".......YYYYYYYY.......",
         ".....YYYYYYYYYYYY.....",
-        ".......YYYYYYYY......."
+        "....YYYYGGGGYYYYYY....",
+        "...YYYYGGGGGGYYYYYY...",
+        "..YYYYYYYYYYYYYYYYYY..",
+        ".YYYYYOOOYYDDDYYYYYYY.",
+        "YYYYYOOOOYYDDDDYYYYYYY",
+        "YYYYOOOOOYYDDDDDYYYYYY",
+        "YYYYOOOOYYYYDDDDYYYYYY",
+        "YYYYYOOYYYYYYDDDYYYYYY",
+        "YYYYYYYYSSYYYYYYYYYYYY",
+        ".YYYYYSSSSSSSSYYYYYYY.",
+        "..YYYYSSSSSSSSYYYYYY..",
+        "...YYYYYSSSSYYYYYYY...",
+        "....YYYYYYYYYYYYYY....",
+        "......YYYYYYYYYY......",
+        "........YYYYYY........"
 
       ]
 
@@ -267,21 +240,9 @@
         "香ばしい葱油を麺に絡めて食べる、シンプルながら香り豊かな麺料理。",
 
       ingredients:[
-        {
-          name:"面",
-          pinyin:"miàn",
-          jp:"麺"
-        },
-        {
-          name:"葱",
-          pinyin:"cōng",
-          jp:"ネギ"
-        },
-        {
-          name:"葱油",
-          pinyin:"cōngyóu",
-          jp:"ネギ油"
-        }
+        {name:"面",pinyin:"miàn",jp:"麺"},
+        {name:"葱",pinyin:"cōng",jp:"ネギ"},
+        {name:"葱油",pinyin:"cōngyóu",jp:"ネギ油"}
       ],
 
       palette:{
@@ -314,19 +275,21 @@
 
       pixelMap:[
 
-        "........GGGG..........",
-        "......GGGGGGGG........",
-        "....YYYYGGGGYYYY......",
-        "...YYYYYYYYYYYYYY.....",
-        "..YYYYBYYYYBYYYYYY....",
-        ".YYYYYYYYYYYYYYYYYY...",
-        "YYYYBYYYYYYYYBYYYYYY..",
-        "YYYYYYYYBYYYYYYYYYYYY.",
-        "YYYBYYYYYYYYYYBYYYYYY.",
-        "YYYYYYYYYYYYYYYYYYYYYY",
-        ".YYYYBYYYYBYYYYYYYYYY.",
-        "..YYYYYYYYYYYYYYYYYY..",
-        "...YYYYBYYYYYYYYYYY...",
+        ".........YYYY.........",
+        ".......YYYYYYYY.......",
+        ".....YYYYYYYYYYYY.....",
+        "....YYYYYYYYYYYYYY....",
+        "...YYYYGGGGGGYYYYYY...",
+        "..YYYYGGGGGGGGYYYYYY..",
+        ".YYYYGGYYYYYYGGYYYYYY.",
+        "YYYYGGYYYYYYYYGGYYYYYY",
+        "YYYYGYYYYBBYYYYGYYYYYY",
+        "YYYYGYYYBBBBYYYGYYYYYY",
+        "YYYYGYYYBBBBYYYGYYYYYY",
+        "YYYYGGYYYYYYYYGGYYYYYY",
+        ".YYYYGGYYYYYYGGYYYYYY.",
+        "..YYYYGGGGGGGGYYYYYY..",
+        "...YYYYGGGGGGYYYYYY...",
         "....YYYYYYYYYYYYYY....",
         "......YYYYYYYYYY......",
         "........YYYYYY........"
@@ -365,11 +328,6 @@
     }
     catch(error){
 
-      console.warn(
-        "FOOD PUZZLE: 料理図鑑の読み込みに失敗",
-        error
-      );
-
       return [];
 
     }
@@ -394,7 +352,7 @@
     catch(error){
 
       console.warn(
-        "FOOD PUZZLE: 料理図鑑の保存に失敗",
+        "料理図鑑保存失敗",
         error
       );
 
@@ -421,7 +379,7 @@
 
 
   // ======================================================
-  // STYLE
+  // CSS
   // ======================================================
 
   const style =
@@ -430,1045 +388,1077 @@
 
   style.textContent = `
 
-    #foodPuzzleRoot{
+  #foodPuzzleRoot{
 
-      position:fixed;
-      inset:0;
+    position:fixed;
+    inset:0;
 
-      z-index:16000;
+    display:none;
 
-      display:none;
+    z-index:16000;
 
-      color:#eee4d2;
+    color:#eee4d2;
 
-      font-family:
-        "Noto Sans JP",
-        "Yu Gothic",
-        sans-serif;
+    font-family:
+      "Noto Sans JP",
+      "Yu Gothic",
+      sans-serif;
 
-    }
-
-
-    #foodPuzzleRoot.open{
-
-      display:block;
-
-    }
+  }
 
 
-    .fp-screen{
+  #foodPuzzleRoot.open{
 
-      position:absolute;
-      inset:0;
+    display:block;
 
-      display:flex;
-
-      align-items:center;
-      justify-content:center;
-
-      box-sizing:border-box;
-
-      padding:22px;
-
-      background:
-        radial-gradient(
-          circle at 50% 30%,
-          #30271f,
-          #101115 70%
-        );
-
-    }
+  }
 
 
-    .fp-panel{
+  .fp-screen{
 
-      width:min(
-        780px,
-        calc(100vw - 32px)
+    position:absolute;
+    inset:0;
+
+    display:flex;
+
+    align-items:center;
+    justify-content:center;
+
+    box-sizing:border-box;
+
+    padding:20px;
+
+    background:
+      radial-gradient(
+        circle at 50% 30%,
+        #30271f,
+        #101115 70%
       );
 
-      max-height:
-        calc(100vh - 32px);
+  }
 
-      overflow:auto;
 
-      box-sizing:border-box;
+  .fp-panel{
 
-      padding:34px;
+    width:min(
+      780px,
+      calc(100vw - 32px)
+    );
 
-      border:
-        1px solid #786246;
+    max-height:
+      calc(100vh - 32px);
 
-      background:
-        linear-gradient(
-          180deg,
-          #28231e,
-          #171719
-        );
+    overflow:auto;
 
-      box-shadow:
-        0 30px 100px
-        rgba(0,0,0,.75);
+    box-sizing:border-box;
 
+    padding:34px;
+
+    border:
+      1px solid #786246;
+
+    background:
+      linear-gradient(
+        180deg,
+        #28231e,
+        #171719
+      );
+
+    box-shadow:
+      0 30px 100px
+      rgba(0,0,0,.75);
+
+  }
+
+
+  .fp-eyebrow{
+
+    margin-bottom:8px;
+
+    text-align:center;
+
+    color:#a98b61;
+
+    font-size:10px;
+
+    letter-spacing:.27em;
+
+  }
+
+
+  .fp-title{
+
+    margin:0;
+
+    text-align:center;
+
+    color:#f0dfbf;
+
+    font-size:28px;
+
+    font-weight:500;
+
+    letter-spacing:.1em;
+
+  }
+
+
+  .fp-subtitle{
+
+    margin:
+      5px 0 27px;
+
+    text-align:center;
+
+    color:#8f816e;
+
+    font-size:11px;
+
+    letter-spacing:.16em;
+
+  }
+
+
+  .fp-description{
+
+    max-width:570px;
+
+    margin:
+      0 auto 24px;
+
+    color:#c8bdab;
+
+    text-align:center;
+
+    font-size:13px;
+
+    line-height:1.9;
+
+  }
+
+
+  .fp-buttons{
+
+    display:flex;
+
+    justify-content:center;
+
+    flex-wrap:wrap;
+
+    gap:11px;
+
+  }
+
+
+  .fp-button{
+
+    min-width:145px;
+
+    padding:
+      12px 17px;
+
+    border:
+      1px solid #665943;
+
+    background:#292724;
+
+    color:#e7ddca;
+
+    cursor:pointer;
+
+    font:inherit;
+
+  }
+
+
+  .fp-button:hover{
+
+    border-color:#a4865c;
+
+    background:#39332a;
+
+  }
+
+
+  .fp-button.primary{
+
+    border-color:#a36c53;
+
+    background:#623d32;
+
+  }
+
+
+  /* MENU */
+
+  .fp-menu{
+
+    display:grid;
+
+    gap:10px;
+
+  }
+
+
+  .fp-dish{
+
+    display:grid;
+
+    grid-template-columns:
+      1fr auto;
+
+    align-items:center;
+
+    gap:20px;
+
+    padding:16px 18px;
+
+    border:
+      1px solid
+      rgba(177,147,101,.28);
+
+    background:
+      rgba(255,255,255,.025);
+
+    cursor:pointer;
+
+  }
+
+
+  .fp-dish:hover{
+
+    transform:
+      translateX(3px);
+
+    border-color:
+      rgba(205,166,106,.72);
+
+    background:
+      rgba(173,126,70,.09);
+
+  }
+
+
+  .fp-dish-name{
+
+    color:#efddbd;
+
+    font-size:20px;
+
+  }
+
+
+  .fp-dish-pinyin{
+
+    margin-top:3px;
+
+    color:#a39682;
+
+    font-size:12px;
+
+  }
+
+
+  .fp-dish-region{
+
+    color:#9e8361;
+
+    text-align:right;
+
+    font-size:11px;
+
+    line-height:1.7;
+
+  }
+
+
+  .fp-big-name{
+
+    color:#f1dfbe;
+
+    text-align:center;
+
+    font-size:38px;
+
+  }
+
+
+  .fp-big-pinyin{
+
+    margin-bottom:20px;
+
+    color:#b39970;
+
+    text-align:center;
+
+    font-size:14px;
+
+  }
+
+
+  .fp-ingredients{
+
+    margin-bottom:25px;
+
+    color:#a99d8a;
+
+    text-align:center;
+
+    font-size:12px;
+
+    line-height:2;
+
+  }
+
+
+  /* GAME */
+
+  #fpGameScreen{
+
+    align-items:flex-start;
+
+    overflow:auto;
+
+    padding:
+      16px 20px 30px;
+
+  }
+
+
+  .fp-game{
+
+    width:
+      min(850px,96vw);
+
+    margin:auto;
+
+  }
+
+
+  .fp-game-header{
+
+    display:flex;
+
+    align-items:flex-end;
+
+    justify-content:space-between;
+
+    margin-bottom:10px;
+
+  }
+
+
+  .fp-game-name{
+
+    color:#ead6b4;
+
+    font-size:21px;
+
+  }
+
+
+  .fp-game-pinyin{
+
+    color:#8e806d;
+
+    font-size:11px;
+
+  }
+
+
+  .fp-progress{
+
+    color:#a99578;
+
+    text-align:right;
+
+    font-size:12px;
+
+  }
+
+
+  .fp-progress-bar{
+
+    width:170px;
+    height:5px;
+
+    margin-top:6px;
+
+    overflow:hidden;
+
+    background:#252428;
+
+  }
+
+
+  #fpProgressFill{
+
+    width:0;
+    height:100%;
+
+    background:#b18b54;
+
+    transition:width .15s;
+
+  }
+
+
+  /* BOARD */
+
+  .fp-board-shell{
+
+    position:relative;
+
+    display:flex;
+
+    align-items:center;
+    justify-content:center;
+
+    min-height:455px;
+
+    overflow:hidden;
+
+    border:
+      1px solid #705d45;
+
+    background:
+      linear-gradient(
+        180deg,
+        #242328,
+        #17181d
+      );
+
+    box-shadow:
+      inset 0 0 70px
+      rgba(0,0,0,.45);
+
+  }
+
+
+  .fp-plate{
+
+    position:absolute;
+
+    width:min(620px,86%);
+
+    aspect-ratio:1.55;
+
+    border:
+      9px solid #b8aa92;
+
+    border-radius:50%;
+
+    background:#d9d2c6;
+
+    box-shadow:
+      0 13px 0 #62574b,
+      0 20px 35px
+      rgba(0,0,0,.4);
+
+    opacity:.92;
+
+  }
+
+
+  #fpPixelBoard{
+
+    position:relative;
+
+    z-index:2;
+
+    display:grid;
+
+    gap:1px;
+
+    filter:
+      drop-shadow(
+        0 6px 5px
+        rgba(0,0,0,.35)
+      );
+
+  }
+
+
+  .fp-pixel{
+
+    position:relative;
+
+    width:17px;
+    height:17px;
+
+    box-sizing:border-box;
+
+    border-radius:2px;
+
+    box-shadow:
+      inset 2px 2px 0
+      rgba(255,255,255,.15),
+      inset -2px -2px 0
+      rgba(0,0,0,.22);
+
+  }
+
+
+  .fp-pixel.empty{
+
+    visibility:hidden;
+
+  }
+
+
+  .fp-pixel.eaten{
+
+    opacity:0;
+
+    transform:
+      scale(.15)
+      rotate(20deg);
+
+    transition:
+      opacity .12s,
+      transform .12s;
+
+  }
+
+
+  .fp-pixel.hit{
+
+    animation:
+      fpHit .13s ease-out;
+
+  }
+
+
+  @keyframes fpHit{
+
+    0%{
+      transform:scale(1);
     }
 
-
-    .fp-eyebrow{
-
-      margin-bottom:8px;
-
-      text-align:center;
-
-      color:#a98b61;
-
-      font-size:10px;
-
-      letter-spacing:.27em;
-
+    45%{
+      transform:scale(1.4);
+      filter:brightness(1.7);
     }
 
-
-    .fp-title{
-
-      margin:0;
-
-      text-align:center;
-
-      color:#f0dfbf;
-
-      font-size:28px;
-
-      font-weight:500;
-
-      letter-spacing:.1em;
-
+    100%{
+      transform:scale(.15);
     }
 
+  }
 
-    .fp-subtitle{
 
-      margin:
-        5px 0 27px;
+  /* ORBIT */
 
-      text-align:center;
+  #fpOrbiter{
 
-      color:#8f816e;
+    position:absolute;
 
-      font-size:11px;
+    z-index:20;
 
-      letter-spacing:.16em;
+    display:none;
 
+    width:31px;
+    height:31px;
+
+    align-items:center;
+    justify-content:center;
+
+    border:
+      3px solid
+      rgba(255,255,255,.55);
+
+    border-radius:7px;
+
+    color:white;
+
+    font-size:11px;
+    font-weight:bold;
+
+    text-shadow:
+      0 1px 3px #000;
+
+    box-shadow:
+      0 4px 0
+      rgba(0,0,0,.35),
+      0 0 14px
+      rgba(255,255,255,.18);
+
+    pointer-events:none;
+
+  }
+
+
+  #fpOrbiter.active{
+
+    display:flex;
+
+  }
+
+
+  #fpOrbiter.attack{
+
+    animation:
+      fpAttack .12s
+      ease-out;
+
+  }
+
+
+  @keyframes fpAttack{
+
+    0%{
+      transform:scale(1);
     }
 
-
-    .fp-description{
-
-      max-width:570px;
-
-      margin:
-        0 auto 24px;
-
-      color:#c8bdab;
-
-      text-align:center;
-
-      font-size:13px;
-
-      line-height:1.9;
-
+    50%{
+      transform:scale(1.45);
     }
 
-
-    .fp-buttons{
-
-      display:flex;
-
-      justify-content:center;
-
-      flex-wrap:wrap;
-
-      gap:11px;
-
+    100%{
+      transform:scale(1);
     }
 
+  }
 
-    .fp-button{
 
-      min-width:145px;
+  /* PARTICLES */
 
-      padding:
-        12px 17px;
+  .fp-particle{
 
-      border:
-        1px solid #665943;
+    position:absolute;
 
-      background:#292724;
+    z-index:15;
 
-      color:#e7ddca;
+    width:5px;
+    height:5px;
 
-      cursor:pointer;
+    pointer-events:none;
 
-      font:inherit;
+    animation:
+      fpParticle .32s
+      forwards;
 
-      transition:.15s;
+  }
 
-    }
 
+  @keyframes fpParticle{
 
-    .fp-button:hover{
-
-      border-color:#a4865c;
-
-      background:#39332a;
-
-    }
-
-
-    .fp-button.primary{
-
-      border-color:#a36c53;
-
-      background:#623d32;
-
-    }
-
-
-    .fp-button.primary:hover{
-
-      background:#784a3c;
-
-    }
-
-
-
-    /* =============================================
-       MENU
-    ============================================= */
-
-    .fp-menu{
-
-      display:grid;
-
-      gap:10px;
-
-    }
-
-
-    .fp-dish{
-
-      display:grid;
-
-      grid-template-columns:
-        1fr auto;
-
-      align-items:center;
-
-      gap:20px;
-
-      padding:16px 18px;
-
-      border:
-        1px solid
-        rgba(177,147,101,.28);
-
-      background:
-        rgba(255,255,255,.025);
-
-      cursor:pointer;
-
-      transition:.15s;
-
-    }
-
-
-    .fp-dish:hover{
-
-      transform:
-        translateX(3px);
-
-      border-color:
-        rgba(205,166,106,.72);
-
-      background:
-        rgba(173,126,70,.09);
-
-    }
-
-
-    .fp-dish-name{
-
-      color:#efddbd;
-
-      font-size:20px;
-
-    }
-
-
-    .fp-dish-pinyin{
-
-      margin-top:3px;
-
-      color:#a39682;
-
-      font-size:12px;
-
-    }
-
-
-    .fp-dish-region{
-
-      color:#9e8361;
-
-      text-align:right;
-
-      font-size:11px;
-
-      line-height:1.7;
-
-    }
-
-
-
-    /* =============================================
-       INTRO
-    ============================================= */
-
-    .fp-big-name{
-
-      margin-top:3px;
-
-      color:#f1dfbe;
-
-      text-align:center;
-
-      font-size:38px;
-
-    }
-
-
-    .fp-big-pinyin{
-
-      margin-bottom:20px;
-
-      color:#b39970;
-
-      text-align:center;
-
-      font-size:14px;
-
-      letter-spacing:.08em;
-
-    }
-
-
-    .fp-ingredients{
-
-      margin-bottom:25px;
-
-      color:#a99d8a;
-
-      text-align:center;
-
-      font-size:12px;
-
-      line-height:2;
-
-    }
-
-
-
-    /* =============================================
-       GAME
-    ============================================= */
-
-    #fpGameScreen{
-
-      align-items:flex-start;
-
-      overflow:auto;
-
-      padding:
-        18px 20px 28px;
-
-    }
-
-
-    .fp-game{
-
-      width:
-        min(820px,96vw);
-
-      margin:auto;
-
-    }
-
-
-    .fp-game-header{
-
-      display:flex;
-
-      align-items:flex-end;
-
-      justify-content:space-between;
-
-      gap:20px;
-
-      margin-bottom:10px;
-
-    }
-
-
-    .fp-game-name{
-
-      color:#ead6b4;
-
-      font-size:21px;
-
-    }
-
-
-    .fp-game-pinyin{
-
-      margin-top:2px;
-
-      color:#8e806d;
-
-      font-size:11px;
-
-    }
-
-
-    .fp-progress{
-
-      color:#a99578;
-
-      text-align:right;
-
-      font-size:12px;
-
-    }
-
-
-    .fp-progress-bar{
-
-      width:160px;
-      height:5px;
-
-      margin-top:6px;
-
-      overflow:hidden;
-
-      background:#252428;
-
-    }
-
-
-    #fpProgressFill{
-
-      width:0%;
-      height:100%;
-
-      background:#b18b54;
-
-      transition:
-        width .2s;
-
-    }
-
-
-
-    /* =============================================
-       DISH BOARD
-    ============================================= */
-
-    .fp-board-shell{
-
-      position:relative;
-
-      display:flex;
-
-      align-items:center;
-      justify-content:center;
-
-      min-height:430px;
-
-      box-sizing:border-box;
-
-      padding:30px;
-
-      overflow:hidden;
-
-      border:
-        1px solid #705d45;
-
-      background:
-        linear-gradient(
-          180deg,
-          #242328,
-          #17181d
-        );
-
-      box-shadow:
-        inset 0 0 70px
-        rgba(0,0,0,.45);
-
-    }
-
-
-    .fp-plate{
-
-      position:absolute;
-
-      width:min(620px,88%);
-      aspect-ratio:1.55;
-
-      border:
-        9px solid #b8aa92;
-
-      border-radius:50%;
-
-      background:#d9d2c6;
-
-      box-shadow:
-        0 13px 0 #62574b,
-        0 20px 35px
-        rgba(0,0,0,.4);
-
-      opacity:.92;
-
-    }
-
-
-    #fpPixelBoard{
-
-      position:relative;
-
-      z-index:2;
-
-      display:grid;
-
-      gap:1px;
-
-      filter:
-        drop-shadow(
-          0 6px 5px
-          rgba(0,0,0,.35)
-        );
-
-    }
-
-
-    .fp-pixel{
-
-      width:17px;
-      height:17px;
-
-      box-sizing:border-box;
-
-      border-radius:2px;
-
-      box-shadow:
-        inset 2px 2px 0
-        rgba(255,255,255,.16),
-        inset -2px -2px 0
-        rgba(0,0,0,.2);
-
-      transition:
-        opacity .18s,
-        transform .18s;
-
-    }
-
-
-    .fp-pixel.empty{
-
-      visibility:hidden;
-
-    }
-
-
-    .fp-pixel.eaten{
-
-      opacity:0;
-
-      transform:
-        scale(.15)
-        rotate(15deg);
-
-      pointer-events:none;
-
-    }
-
-
-
-    /* =============================================
-       INGREDIENT POPUP
-    ============================================= */
-
-    #fpIngredientPopup{
-
-      position:absolute;
-
-      z-index:5;
-
-      left:22px;
-      top:22px;
-
-      min-width:165px;
-
-      padding:11px 14px;
-
-      border:
-        1px solid
-        rgba(177,143,92,.35);
-
-      background:
-        rgba(12,13,16,.85);
-
-      opacity:0;
-
-      transform:
-        translateY(-5px);
-
-      transition:
-        .2s;
-
-      pointer-events:none;
-
-    }
-
-
-    #fpIngredientPopup.show{
+    from{
 
       opacity:1;
 
       transform:
-        translateY(0);
+        translate(0,0)
+        scale(1);
 
     }
 
+    to{
 
-    .fp-popup-cn{
-
-      color:#ead8b9;
-
-      font-size:20px;
-
-    }
-
-
-    .fp-popup-sub{
-
-      margin-top:3px;
-
-      color:#9d907d;
-
-      font-size:11px;
-
-    }
-
-
-
-    /* =============================================
-       TRAY
-    ============================================= */
-
-    .fp-tray-title{
-
-      margin:
-        18px 0 7px;
-
-      color:#887d6d;
-
-      text-align:center;
-
-      font-size:10px;
-
-      letter-spacing:.16em;
-
-    }
-
-
-    #fpTray{
-
-      display:flex;
-
-      justify-content:center;
-
-      gap:8px;
-
-      min-height:52px;
-
-    }
-
-
-    .fp-tray-slot{
-
-      display:flex;
-
-      align-items:center;
-      justify-content:center;
-
-      width:58px;
-      height:48px;
-
-      box-sizing:border-box;
-
-      border:
-        1px solid #524c45;
-
-      border-radius:5px;
-
-      background:
-        rgba(255,255,255,.025);
-
-      color:#70695f;
-
-      font-size:11px;
-
-    }
-
-
-    .fp-tray-slot.used{
-
-      border-color:#8c7557;
-
-      box-shadow:
-        inset 0 0 12px
-        rgba(0,0,0,.25);
-
-    }
-
-
-
-    /* =============================================
-       BLOCK QUEUE
-    ============================================= */
-
-    .fp-block-title{
-
-      margin:
-        18px 0 9px;
-
-      color:#a3947d;
-
-      text-align:center;
-
-      font-size:11px;
-
-      letter-spacing:.12em;
-
-    }
-
-
-    #fpBlocks{
-
-      display:flex;
-
-      justify-content:center;
-
-      flex-wrap:wrap;
-
-      gap:10px;
-
-    }
-
-
-    .fp-color-block{
-
-      position:relative;
-
-      display:flex;
-
-      flex-direction:column;
-
-      align-items:center;
-      justify-content:center;
-
-      width:84px;
-      height:76px;
-
-      box-sizing:border-box;
-
-      border:
-        2px solid
-        rgba(255,255,255,.35);
-
-      border-radius:9px;
-
-      cursor:pointer;
-
-      color:#fff;
-
-      text-shadow:
-        0 2px 3px
-        rgba(0,0,0,.7);
-
-      box-shadow:
-        inset 0 4px 0
-        rgba(255,255,255,.2),
-        inset 0 -5px 0
-        rgba(0,0,0,.2),
-        0 5px 0
-        rgba(0,0,0,.35);
-
-      transition:
-        transform .12s,
-        filter .12s;
-
-      user-select:none;
-
-    }
-
-
-    .fp-color-block:hover{
+      opacity:0;
 
       transform:
-        translateY(-3px);
-
-      filter:
-        brightness(1.12);
-
-    }
-
-
-    .fp-color-number{
-
-      font-size:25px;
-
-      font-weight:800;
+        translate(
+          var(--px),
+          var(--py)
+        )
+        scale(.3);
 
     }
 
+  }
 
-    .fp-color-label{
 
-      margin-top:2px;
+  /* POPUP */
 
-      font-size:9px;
+  #fpIngredientPopup{
 
-      opacity:.9;
+    position:absolute;
 
-    }
+    z-index:30;
 
+    left:20px;
+    top:20px;
 
+    min-width:160px;
 
-    /* =============================================
-       MESSAGE
-    ============================================= */
+    padding:10px 13px;
 
-    #fpMessage{
+    border:
+      1px solid
+      rgba(177,143,92,.35);
 
-      min-height:25px;
+    background:
+      rgba(12,13,16,.88);
 
-      margin-top:14px;
+    opacity:0;
 
-      color:#b7a88f;
+    transform:
+      translateY(-5px);
 
-      text-align:center;
+    transition:.2s;
 
-      font-size:12px;
+    pointer-events:none;
 
-    }
+  }
 
 
+  #fpIngredientPopup.show{
 
-    /* =============================================
-       COMPLETE / FAIL
-    ============================================= */
+    opacity:1;
 
-    .fp-result-mark{
+    transform:
+      translateY(0);
 
-      margin-bottom:8px;
+  }
 
-      color:#b58d55;
 
-      text-align:center;
+  .fp-popup-cn{
 
-      font-size:11px;
+    color:#ead8b9;
 
-      letter-spacing:.28em;
+    font-size:20px;
 
-    }
+  }
 
 
-    .fp-result-title{
+  .fp-popup-sub{
 
-      color:#f0debc;
+    color:#9d907d;
 
-      text-align:center;
+    font-size:11px;
 
-      font-size:38px;
+  }
 
-    }
 
+  /* TRAY */
 
-    .fp-result-cn{
+  .fp-tray-title{
 
-      margin:
-        4px 0 22px;
+    margin:
+      17px 0 7px;
 
-      color:#aa8d66;
+    color:#887d6d;
 
-      text-align:center;
+    text-align:center;
 
-    }
+    font-size:10px;
 
+    letter-spacing:.16em;
 
-    .fp-new{
+  }
 
-      width:max-content;
 
-      max-width:100%;
+  #fpTray{
 
-      margin:
-        0 auto 22px;
+    display:flex;
 
-      padding:
-        7px 14px;
+    justify-content:center;
 
-      border:
-        1px solid #8a6748;
+    gap:8px;
 
-      color:#d0a975;
+    min-height:52px;
 
-      font-size:11px;
+  }
 
-      letter-spacing:.1em;
 
-    }
+  .fp-tray-slot{
 
+    display:flex;
 
+    align-items:center;
+    justify-content:center;
 
-    /* =============================================
-       BOOK
-    ============================================= */
+    width:58px;
+    height:48px;
 
-    .fp-book-grid{
+    border:
+      1px solid #524c45;
 
-      display:grid;
+    border-radius:5px;
 
-      grid-template-columns:
-        repeat(
-          auto-fit,
-          minmax(190px,1fr)
-        );
+    background:
+      rgba(255,255,255,.025);
 
-      gap:12px;
+    color:#70695f;
 
-      margin-bottom:25px;
+  }
 
-    }
 
+  .fp-tray-slot.used{
 
-    .fp-book-card{
+    border-color:#8c7557;
 
-      min-height:130px;
+  }
 
-      box-sizing:border-box;
 
-      padding:17px;
+  /* BLOCKS */
 
-      border:
-        1px solid
-        rgba(166,138,94,.3);
+  .fp-block-title{
 
-      background:
-        rgba(255,255,255,.025);
+    margin:
+      17px 0 9px;
 
-    }
+    color:#a3947d;
 
+    text-align:center;
 
-    .fp-book-card.locked{
+    font-size:11px;
 
-      display:flex;
+  }
 
-      align-items:center;
-      justify-content:center;
 
-      color:#625e57;
+  #fpBlocks{
 
-      font-size:22px;
+    display:flex;
 
-      letter-spacing:.18em;
+    justify-content:center;
 
-    }
+    flex-wrap:wrap;
 
+    gap:10px;
 
-    .fp-book-name{
+  }
 
-      color:#ead7b8;
 
-      font-size:19px;
+  .fp-color-block{
 
-    }
+    display:flex;
 
+    flex-direction:column;
 
-    .fp-book-pinyin{
+    align-items:center;
+    justify-content:center;
 
-      margin:
-        3px 0 10px;
+    width:84px;
+    height:76px;
 
-      color:#948673;
+    border:
+      2px solid
+      rgba(255,255,255,.35);
 
-      font-size:11px;
+    border-radius:9px;
 
-    }
+    cursor:pointer;
 
+    color:#fff;
 
-    .fp-book-region{
+    text-shadow:
+      0 2px 3px
+      rgba(0,0,0,.7);
 
-      margin-bottom:7px;
+    box-shadow:
+      inset 0 4px 0
+      rgba(255,255,255,.2),
+      inset 0 -5px 0
+      rgba(0,0,0,.2),
+      0 5px 0
+      rgba(0,0,0,.35);
 
-      color:#ad8c62;
+    user-select:none;
 
-      font-size:11px;
+    transition:.12s;
 
-    }
+  }
 
 
-    .fp-book-description{
+  .fp-color-block:hover{
 
-      color:#aaa093;
+    transform:
+      translateY(-3px);
 
-      font-size:11px;
+    filter:brightness(1.12);
 
-      line-height:1.7;
+  }
 
-    }
 
+  .fp-color-block.disabled{
 
-    @media(max-width:700px){
+    pointer-events:none;
 
-      .fp-pixel{
+    opacity:.4;
 
-        width:13px;
-        height:13px;
+  }
 
-      }
 
-      .fp-board-shell{
+  .fp-color-number{
 
-        min-height:350px;
-        padding:15px;
+    font-size:25px;
 
-      }
+    font-weight:800;
 
-      .fp-color-block{
+  }
 
-        width:68px;
-        height:65px;
 
-      }
+  .fp-color-label{
 
-      .fp-panel{
+    font-size:9px;
 
-        padding:
-          27px 19px;
+  }
 
-      }
 
-    }
+  #fpMessage{
+
+    min-height:27px;
+
+    margin-top:14px;
+
+    color:#b7a88f;
+
+    text-align:center;
+
+    font-size:12px;
+
+  }
+
+
+  /* RESULT */
+
+  .fp-result-mark{
+
+    color:#b58d55;
+
+    text-align:center;
+
+    font-size:11px;
+
+    letter-spacing:.28em;
+
+  }
+
+
+  .fp-result-title{
+
+    color:#f0debc;
+
+    text-align:center;
+
+    font-size:38px;
+
+  }
+
+
+  .fp-result-cn{
+
+    margin-bottom:22px;
+
+    color:#aa8d66;
+
+    text-align:center;
+
+  }
+
+
+  .fp-new{
+
+    width:max-content;
+
+    max-width:100%;
+
+    margin:
+      0 auto 22px;
+
+    padding:
+      7px 14px;
+
+    border:
+      1px solid #8a6748;
+
+    color:#d0a975;
+
+    font-size:11px;
+
+  }
+
+
+  /* BOOK */
+
+  .fp-book-grid{
+
+    display:grid;
+
+    grid-template-columns:
+      repeat(
+        auto-fit,
+        minmax(190px,1fr)
+      );
+
+    gap:12px;
+
+    margin-bottom:25px;
+
+  }
+
+
+  .fp-book-card{
+
+    min-height:130px;
+
+    padding:17px;
+
+    border:
+      1px solid
+      rgba(166,138,94,.3);
+
+    background:
+      rgba(255,255,255,.025);
+
+  }
+
+
+  .fp-book-card.locked{
+
+    display:flex;
+
+    align-items:center;
+    justify-content:center;
+
+    color:#625e57;
+
+    font-size:22px;
+
+  }
+
+
+  .fp-book-name{
+
+    color:#ead7b8;
+
+    font-size:19px;
+
+  }
+
+
+  .fp-book-pinyin{
+
+    color:#948673;
+
+    font-size:11px;
+
+  }
+
+
+  .fp-book-region{
+
+    margin:
+      9px 0 7px;
+
+    color:#ad8c62;
+
+    font-size:11px;
+
+  }
+
+
+  .fp-book-description{
+
+    color:#aaa093;
+
+    font-size:11px;
+
+    line-height:1.7;
+
+  }
 
   `;
 
@@ -1492,46 +1482,31 @@
 
 
   // ======================================================
-  // HELPERS
+  // COMMON
   // ======================================================
 
   function stopPlayer(){
 
     try{
 
-      if(
-        typeof keys !==
-        "undefined"
-      ){
+      if(typeof keys !== "undefined"){
 
-        for(
-          const key in keys
-        ){
+        for(const key in keys){
 
-          keys[key] =
-            false;
+          keys[key] = false;
 
         }
 
       }
 
+      if(typeof player !== "undefined"){
 
-      if(
-        typeof player !==
-        "undefined"
-      ){
-
-        player.moving =
-          false;
+        player.moving = false;
 
       }
 
     }
-    catch(error){
-
-      // independent fallback
-
-    }
+    catch(error){}
 
   }
 
@@ -1542,9 +1517,7 @@
 
     stopPlayer();
 
-    root.classList.add(
-      "open"
-    );
+    root.classList.add("open");
 
   }
 
@@ -1557,22 +1530,26 @@
 
     puzzle = null;
 
+    cancelAnimationFrame(
+      animationFrame
+    );
+
     root.innerHTML = "";
 
-    root.classList.remove(
-      "open"
-    );
+    root.classList.remove("open");
 
   }
 
 
   // ======================================================
-  // ORDER
+  // ORDER SCREEN
   // ======================================================
 
   function showOrderQuestion(){
 
     openRoot();
+
+    puzzle = null;
 
 
     root.innerHTML = `
@@ -1632,28 +1609,22 @@
     `;
 
 
-    document
-      .getElementById(
-        "fpMenuButton"
-      )
-      .onclick =
-        showMenu;
+    document.getElementById(
+      "fpMenuButton"
+    ).onclick =
+      showMenu;
 
 
-    document
-      .getElementById(
-        "fpBookButton"
-      )
-      .onclick =
-        showFoodBook;
+    document.getElementById(
+      "fpBookButton"
+    ).onclick =
+      showFoodBook;
 
 
-    document
-      .getElementById(
-        "fpCloseButton"
-      )
-      .onclick =
-        closeRoot;
+    document.getElementById(
+      "fpCloseButton"
+    ).onclick =
+      closeRoot;
 
   }
 
@@ -1666,38 +1637,38 @@
 
     openRoot();
 
+    puzzle = null;
+
 
     const cards =
       Object.entries(DISHES)
-      .map(
-        ([id,dish])=>`
+      .map(([id,dish])=>`
 
-          <div
-            class="fp-dish"
-            data-id="${id}"
-          >
+        <div
+          class="fp-dish"
+          data-id="${id}"
+        >
 
-            <div>
+          <div>
 
-              <div class="fp-dish-name">
-                ${dish.name}
-              </div>
-
-              <div class="fp-dish-pinyin">
-                ${dish.pinyin}
-              </div>
-
+            <div class="fp-dish-name">
+              ${dish.name}
             </div>
 
-            <div class="fp-dish-region">
-              ${dish.region}<br>
-              ${dish.type}
+            <div class="fp-dish-pinyin">
+              ${dish.pinyin}
             </div>
 
           </div>
 
-        `
-      )
+          <div class="fp-dish-region">
+            ${dish.region}<br>
+            ${dish.type}
+          </div>
+
+        </div>
+
+      `)
       .join("");
 
 
@@ -1758,12 +1729,10 @@
       });
 
 
-    document
-      .getElementById(
-        "fpMenuBack"
-      )
-      .onclick =
-        showOrderQuestion;
+    document.getElementById(
+      "fpMenuBack"
+    ).onclick =
+      showOrderQuestion;
 
   }
 
@@ -1776,7 +1745,6 @@
 
     const dish =
       DISHES[id];
-
 
     if(!dish){
       return;
@@ -1814,11 +1782,11 @@
 
             ${
               dish.ingredients
-                .map(
-                  item=>
-                    `${item.name}（${item.jp}）`
-                )
-                .join("　")
+              .map(
+                item=>
+                  `${item.name}（${item.jp}）`
+              )
+              .join("　")
             }
 
           </div>
@@ -1848,33 +1816,28 @@
     `;
 
 
-    document
-      .getElementById(
-        "fpStart"
-      )
-      .onclick =
-        ()=>startPuzzle(id);
+    document.getElementById(
+      "fpStart"
+    ).onclick =
+      ()=>startPuzzle(id);
 
 
-    document
-      .getElementById(
-        "fpIntroBack"
-      )
-      .onclick =
-        showMenu;
+    document.getElementById(
+      "fpIntroBack"
+    ).onclick =
+      showMenu;
 
   }
 
 
   // ======================================================
-  // PUZZLE CREATE
+  // CREATE PUZZLE
   // ======================================================
 
   function startPuzzle(id){
 
     const dish =
       DISHES[id];
-
 
     if(!dish){
       return;
@@ -1893,12 +1856,9 @@
         [...row].forEach(
           (symbol,x)=>{
 
-            if(
-              symbol === "."
-            ){
+            if(symbol === "."){
               return;
             }
-
 
             pixels.push({
 
@@ -1907,7 +1867,9 @@
 
               symbol:symbol,
 
-              eaten:false
+              eaten:false,
+
+              element:null
 
             });
 
@@ -1935,7 +1897,14 @@
 
       queue:[],
 
+      busy:false,
+
       over:false,
+
+      activeBlock:null,
+
+      orbitAngle:
+        Math.PI * 1.5,
 
       popupTimer:null
 
@@ -1944,28 +1913,24 @@
 
     createQueue();
 
-
     renderPuzzle();
 
   }
 
 
   // ======================================================
-  // QUEUE GENERATION
+  // QUEUE
   // ======================================================
 
   function createQueue(){
-
-    if(!puzzle){
-      return;
-    }
-
 
     const counts = {};
 
 
     puzzle.pixels
-      .filter(pixel=>!pixel.eaten)
+      .filter(
+        pixel=>!pixel.eaten
+      )
       .forEach(pixel=>{
 
         counts[pixel.symbol] =
@@ -1984,38 +1949,37 @@
       .forEach(
         ([symbol,count])=>{
 
-          let left =
+          let remaining =
             count;
 
 
-          while(left>0){
+          while(remaining > 0){
 
             /*
-              1ブロックの数字。
+              Ver.3ではあえて
+              少し大きめの数字を混ぜる。
 
-              完全一致ばかりではなく、
-              少し余る数字も混ぜる。
-
-              その余りがトレーに入る。
+              色順を間違えると
+              TRAYに余りやすくなる。
             */
 
-            const base =
+            const usable =
               Math.min(
-                left,
-                8 +
+                remaining,
+                7 +
                 Math.floor(
-                  Math.random()*12
+                  Math.random()*11
                 )
               );
 
 
             const extra =
-              Math.random() < .32
-                ? 1 +
-                  Math.floor(
-                    Math.random()*5
-                  )
-                : 0;
+              Math.random() < .38
+              ? 1 +
+                Math.floor(
+                  Math.random()*5
+                )
+              : 0;
 
 
             blocks.push({
@@ -2023,13 +1987,13 @@
               symbol:symbol,
 
               amount:
-                base + extra
+                usable + extra
 
             });
 
 
-            left -=
-              base;
+            remaining -=
+              usable;
 
           }
 
@@ -2037,9 +2001,7 @@
       );
 
 
-    /*
-      シャッフル
-    */
+    // shuffle
 
     for(
       let i=
@@ -2076,7 +2038,7 @@
 
 
   // ======================================================
-  // PUZZLE UI
+  // RENDER GAME
   // ======================================================
 
   function renderPuzzle(){
@@ -2138,7 +2100,10 @@
           </div>
 
 
-          <div class="fp-board-shell">
+          <div
+            class="fp-board-shell"
+            id="fpBoardShell"
+          >
 
             <div class="fp-plate"></div>
 
@@ -2148,31 +2113,42 @@
 
             <div
               id="fpPixelBoard"
+
               style="
                 grid-template-columns:
                 repeat(${cols},17px);
               "
             ></div>
 
+
+            <div id="fpOrbiter"></div>
+
           </div>
 
 
           <div class="fp-tray-title">
-            TRAY　使い切れなかったブロック
+            TRAY
+            ・
+            使い切れなかったブロック
           </div>
 
           <div id="fpTray"></div>
 
 
           <div class="fp-block-title">
-            色ブロックを選んで料理を食べ進めよう
+
+            外側から食べられる色を
+            見極めよう
+
           </div>
 
           <div id="fpBlocks"></div>
 
 
           <div id="fpMessage">
-            料理と同じ色のブロックを選んでください
+
+            色ブロックを選んでください
+
           </div>
 
 
@@ -2197,15 +2173,19 @@
     `;
 
 
-    document
-      .getElementById(
-        "fpQuit"
-      )
-      .onclick =
-        showMenu;
+    document.getElementById(
+      "fpQuit"
+    ).onclick =
+      ()=>{
+
+        if(!puzzle.busy){
+          showMenu();
+        }
+
+      };
 
 
-    drawPixels();
+    buildPixelBoard();
 
     drawTray();
 
@@ -2217,10 +2197,10 @@
 
 
   // ======================================================
-  // PIXELS
+  // BUILD PIXELS
   // ======================================================
 
-  function drawPixels(){
+  function buildPixelBoard(){
 
     const board =
       document.getElementById(
@@ -2228,19 +2208,11 @@
       );
 
 
-    if(
-      !board ||
-      !puzzle
-    ){
-      return;
-    }
+    board.innerHTML = "";
 
 
     const dish =
       puzzle.dish;
-
-
-    board.innerHTML = "";
 
 
     dish.pixelMap.forEach(
@@ -2259,19 +2231,13 @@
               "fp-pixel";
 
 
-            if(
-              symbol === "."
-            ){
+            if(symbol === "."){
 
               cell.classList.add(
                 "empty"
               );
 
-
-              board.appendChild(
-                cell
-              );
-
+              board.appendChild(cell);
 
               return;
 
@@ -2279,9 +2245,7 @@
 
 
             const data =
-              dish.palette[
-                symbol
-              ];
+              dish.palette[symbol];
 
 
             cell.style.background =
@@ -2289,28 +2253,18 @@
 
 
             const pixel =
-              puzzle.pixels.find(
-                p=>
-                  p.x===x &&
-                  p.y===y
-              );
+              getPixel(x,y);
 
 
-            if(
-              pixel &&
-              pixel.eaten
-            ){
+            if(pixel){
 
-              cell.classList.add(
-                "eaten"
-              );
+              pixel.element =
+                cell;
 
             }
 
 
-            board.appendChild(
-              cell
-            );
+            board.appendChild(cell);
 
           }
 
@@ -2319,6 +2273,1092 @@
       }
 
     );
+
+  }
+
+
+  // ======================================================
+  // PIXEL HELPERS
+  // ======================================================
+
+  function getPixel(x,y){
+
+    return puzzle.pixels.find(
+      pixel=>
+        pixel.x === x &&
+        pixel.y === y
+    );
+
+  }
+
+
+  function isSolid(x,y){
+
+    const pixel =
+      getPixel(x,y);
+
+    return !!(
+      pixel &&
+      !pixel.eaten
+    );
+
+  }
+
+
+  /*
+    核心。
+
+    上下左右のどこかに
+    生きたピクセルが存在しなければ、
+    その方向は「外気」に接している。
+
+    よって現在の外周。
+  */
+
+  function isExposedPixel(pixel){
+
+    if(
+      !pixel ||
+      pixel.eaten
+    ){
+      return false;
+    }
+
+
+    const directions = [
+
+      [0,-1],
+      [1,0],
+      [0,1],
+      [-1,0]
+
+    ];
+
+
+    return directions.some(
+      ([dx,dy])=>
+        !isSolid(
+          pixel.x+dx,
+          pixel.y+dy
+        )
+    );
+
+  }
+
+
+  function getExposedPixels(
+    symbol
+  ){
+
+    return puzzle.pixels
+      .filter(
+        pixel=>
+          !pixel.eaten &&
+          pixel.symbol === symbol &&
+          isExposedPixel(pixel)
+      );
+
+  }
+
+
+  // ======================================================
+  // BLOCK DISPLAY
+  // ======================================================
+
+  function drawBlocks(){
+
+    const container =
+      document.getElementById(
+        "fpBlocks"
+      );
+
+
+    if(!container){
+      return;
+    }
+
+
+    container.innerHTML = "";
+
+
+    puzzle.queue
+      .slice(0,4)
+      .forEach(
+        (block,index)=>{
+
+          const data =
+            puzzle.dish.palette[
+              block.symbol
+            ];
+
+
+          const button =
+            document.createElement(
+              "div"
+            );
+
+
+          button.className =
+            "fp-color-block";
+
+
+          if(puzzle.busy){
+
+            button.classList.add(
+              "disabled"
+            );
+
+          }
+
+
+          button.style.background =
+            `
+            linear-gradient(
+              180deg,
+              ${data.color},
+              ${data.dark}
+            )
+            `;
+
+
+          button.innerHTML = `
+
+            <div class="fp-color-number">
+              ${block.amount}
+            </div>
+
+            <div class="fp-color-label">
+              ${data.name}
+            </div>
+
+          `;
+
+
+          button.onclick =
+            ()=>selectBlock(index);
+
+
+          container.appendChild(
+            button
+          );
+
+        }
+      );
+
+  }
+
+
+  // ======================================================
+  // SELECT BLOCK
+  // ======================================================
+
+  function selectBlock(index){
+
+    if(
+      !puzzle ||
+      puzzle.busy ||
+      puzzle.over
+    ){
+      return;
+    }
+
+
+    const block =
+      puzzle.queue[index];
+
+
+    if(!block){
+      return;
+    }
+
+
+    puzzle.queue.splice(
+      index,
+      1
+    );
+
+
+    puzzle.busy =
+      true;
+
+
+    puzzle.activeBlock = {
+
+      symbol:
+        block.symbol,
+
+      amount:
+        block.amount,
+
+      originalAmount:
+        block.amount
+
+    };
+
+
+    const data =
+      puzzle.dish.palette[
+        block.symbol
+      ];
+
+
+    setMessage(
+      `${data.name} ${block.amount} が料理の周囲を探しています……`
+    );
+
+
+    drawBlocks();
+
+
+    startOrbit();
+
+  }
+
+
+  // ======================================================
+  // ORBIT
+  // ======================================================
+
+  function startOrbit(){
+
+    const orbiter =
+      document.getElementById(
+        "fpOrbiter"
+      );
+
+
+    if(
+      !orbiter ||
+      !puzzle.activeBlock
+    ){
+      return;
+    }
+
+
+    const data =
+      puzzle.dish.palette[
+        puzzle.activeBlock.symbol
+      ];
+
+
+    orbiter.style.background =
+      `
+      linear-gradient(
+        180deg,
+        ${data.color},
+        ${data.dark}
+      )
+      `;
+
+
+    orbiter.textContent =
+      puzzle.activeBlock.amount;
+
+
+    orbiter.classList.add(
+      "active"
+    );
+
+
+    const start =
+      performance.now();
+
+
+    puzzle.orbitAngle =
+      -Math.PI/2;
+
+
+    function orbit(now){
+
+      if(
+        !puzzle ||
+        !puzzle.busy ||
+        !puzzle.activeBlock
+      ){
+        return;
+      }
+
+
+      const shell =
+        document.getElementById(
+          "fpBoardShell"
+        );
+
+
+      const board =
+        document.getElementById(
+          "fpPixelBoard"
+        );
+
+
+      const orb =
+        document.getElementById(
+          "fpOrbiter"
+        );
+
+
+      if(
+        !shell ||
+        !board ||
+        !orb
+      ){
+        return;
+      }
+
+
+      const shellRect =
+        shell.getBoundingClientRect();
+
+
+      const boardRect =
+        board.getBoundingClientRect();
+
+
+      const centerX =
+        boardRect.left -
+        shellRect.left +
+        boardRect.width/2;
+
+
+      const centerY =
+        boardRect.top -
+        shellRect.top +
+        boardRect.height/2;
+
+
+      const radiusX =
+        boardRect.width/2 +
+        58;
+
+
+      const radiusY =
+        boardRect.height/2 +
+        48;
+
+
+      const elapsed =
+        now-start;
+
+
+      puzzle.orbitAngle =
+        -Math.PI/2 +
+        elapsed *
+        ORBIT_SPEED;
+
+
+      const x =
+        centerX +
+        Math.cos(
+          puzzle.orbitAngle
+        ) *
+        radiusX;
+
+
+      const y =
+        centerY +
+        Math.sin(
+          puzzle.orbitAngle
+        ) *
+        radiusY;
+
+
+      orb.style.left =
+        `${x-15}px`;
+
+
+      orb.style.top =
+        `${y-15}px`;
+
+
+      /*
+        約一周見せたら
+        攻撃判定へ。
+      */
+
+      if(
+        elapsed >=
+        SEARCH_TIME
+      ){
+
+        beginAttack();
+
+        return;
+
+      }
+
+
+      animationFrame =
+        requestAnimationFrame(
+          orbit
+        );
+
+    }
+
+
+    animationFrame =
+      requestAnimationFrame(
+        orbit
+      );
+
+  }
+
+
+  // ======================================================
+  // ATTACK
+  // ======================================================
+
+  async function beginAttack(){
+
+    if(
+      !puzzle ||
+      !puzzle.activeBlock
+    ){
+      return;
+    }
+
+
+    const active =
+      puzzle.activeBlock;
+
+
+    const data =
+      puzzle.dish.palette[
+        active.symbol
+      ];
+
+
+    showIngredient(
+      active.symbol
+    );
+
+
+    /*
+      重要：
+
+      1マス壊すごとに
+      getExposedPixels() を呼び直す。
+
+      そのため壊した奥から
+      新しい同色が露出すれば
+      そのまま連続破壊できる。
+    */
+
+    while(
+      active.amount > 0
+    ){
+
+      const exposed =
+        getExposedPixels(
+          active.symbol
+        );
+
+
+      if(
+        exposed.length === 0
+      ){
+
+        break;
+
+      }
+
+
+      const target =
+        chooseAttackTarget(
+          exposed
+        );
+
+
+      await moveOrbiterToPixel(
+        target
+      );
+
+
+      destroyPixel(
+        target
+      );
+
+
+      active.amount--;
+
+
+      updateOrbiterNumber();
+
+
+      updateProgress();
+
+
+      await wait(
+        DESTROY_INTERVAL
+      );
+
+    }
+
+
+    /*
+      全部使えた
+    */
+
+    if(
+      active.amount <= 0
+    ){
+
+      setMessage(
+        `${data.name}を全部使い切った！`
+      );
+
+
+      await wait(180);
+
+
+      finishBlockAction();
+
+      return;
+
+    }
+
+
+    /*
+      同色がまだ存在するが、
+      外から届かない。
+
+      これがパズル要素。
+    */
+
+    const remainingSameColor =
+      puzzle.pixels.filter(
+        pixel=>
+          !pixel.eaten &&
+          pixel.symbol ===
+            active.symbol
+      ).length;
+
+
+    if(
+      remainingSameColor > 0
+    ){
+
+      setMessage(
+        `${data.name}はまだ内側に隠れている。残り ${active.amount} がTRAYへ！`
+      );
+
+    }
+    else{
+
+      setMessage(
+        `${data.name}を食べ切った。余り ${active.amount} がTRAYへ。`
+      );
+
+    }
+
+
+    puzzle.tray.push({
+
+      symbol:
+        active.symbol,
+
+      amount:
+        active.amount
+
+    });
+
+
+    drawTray();
+
+
+    await wait(350);
+
+
+    if(
+      puzzle.tray.length >=
+      SLOT_MAX
+    ){
+
+      puzzle.over = true;
+
+      setTimeout(
+        showFail,
+        350
+      );
+
+      return;
+
+    }
+
+
+    finishBlockAction();
+
+  }
+
+
+  // ======================================================
+  // TARGET SELECTION
+  // ======================================================
+
+  function chooseAttackTarget(
+    pixels
+  ){
+
+    /*
+      外周を時計回りに
+      なぞっているように見せるため、
+
+      上 → 右 → 下 → 左
+      に近い順序で優先する。
+    */
+
+    const alive =
+      puzzle.pixels.filter(
+        p=>!p.eaten
+      );
+
+
+    const minX =
+      Math.min(
+        ...alive.map(p=>p.x)
+      );
+
+
+    const maxX =
+      Math.max(
+        ...alive.map(p=>p.x)
+      );
+
+
+    const minY =
+      Math.min(
+        ...alive.map(p=>p.y)
+      );
+
+
+    const maxY =
+      Math.max(
+        ...alive.map(p=>p.y)
+      );
+
+
+    function perimeterScore(p){
+
+      if(p.y === minY){
+
+        return p.x;
+
+      }
+
+
+      if(p.x === maxX){
+
+        return 1000 + p.y;
+
+      }
+
+
+      if(p.y === maxY){
+
+        return 2000 - p.x;
+
+      }
+
+
+      if(p.x === minX){
+
+        return 3000 - p.y;
+
+      }
+
+
+      /*
+        凹凸部分
+      */
+
+      return (
+        4000 +
+        p.y*100 +
+        p.x
+      );
+
+    }
+
+
+    return [...pixels]
+      .sort(
+        (a,b)=>
+          perimeterScore(a) -
+          perimeterScore(b)
+      )[0];
+
+  }
+
+
+  // ======================================================
+  // MOVE ORBITER TO TARGET
+  // ======================================================
+
+  function moveOrbiterToPixel(
+    pixel
+  ){
+
+    return new Promise(
+      resolve=>{
+
+        const orb =
+          document.getElementById(
+            "fpOrbiter"
+          );
+
+
+        const shell =
+          document.getElementById(
+            "fpBoardShell"
+          );
+
+
+        if(
+          !orb ||
+          !shell ||
+          !pixel.element
+        ){
+
+          resolve();
+
+          return;
+
+        }
+
+
+        const shellRect =
+          shell.getBoundingClientRect();
+
+
+        const targetRect =
+          pixel.element
+          .getBoundingClientRect();
+
+
+        const targetX =
+          targetRect.left -
+          shellRect.left +
+          targetRect.width/2;
+
+
+        const targetY =
+          targetRect.top -
+          shellRect.top +
+          targetRect.height/2;
+
+
+        orb.style.transition =
+          "left .10s linear, top .10s linear";
+
+
+        orb.style.left =
+          `${targetX-15}px`;
+
+
+        orb.style.top =
+          `${targetY-15}px`;
+
+
+        orb.classList.add(
+          "attack"
+        );
+
+
+        setTimeout(
+          ()=>{
+
+            orb.classList.remove(
+              "attack"
+            );
+
+            resolve();
+
+          },
+          105
+        );
+
+      }
+
+    );
+
+  }
+
+
+  // ======================================================
+  // DESTROY
+  // ======================================================
+
+  function destroyPixel(pixel){
+
+    if(
+      !pixel ||
+      pixel.eaten
+    ){
+      return;
+    }
+
+
+    pixel.eaten = true;
+
+
+    const element =
+      pixel.element;
+
+
+    if(element){
+
+      element.classList.add(
+        "hit"
+      );
+
+
+      createParticles(
+        element,
+        pixel.symbol
+      );
+
+
+      setTimeout(
+        ()=>{
+
+          element.classList.add(
+            "eaten"
+          );
+
+        },
+        50
+      );
+
+    }
+
+  }
+
+
+  // ======================================================
+  // PARTICLES
+  // ======================================================
+
+  function createParticles(
+    element,
+    symbol
+  ){
+
+    const shell =
+      document.getElementById(
+        "fpBoardShell"
+      );
+
+
+    if(
+      !shell ||
+      !element
+    ){
+      return;
+    }
+
+
+    const shellRect =
+      shell.getBoundingClientRect();
+
+
+    const rect =
+      element.getBoundingClientRect();
+
+
+    const color =
+      puzzle.dish.palette[
+        symbol
+      ].color;
+
+
+    for(
+      let i=0;
+      i<4;
+      i++
+    ){
+
+      const particle =
+        document.createElement(
+          "div"
+        );
+
+
+      particle.className =
+        "fp-particle";
+
+
+      particle.style.background =
+        color;
+
+
+      particle.style.left =
+        `${
+          rect.left -
+          shellRect.left +
+          rect.width/2
+        }px`;
+
+
+      particle.style.top =
+        `${
+          rect.top -
+          shellRect.top +
+          rect.height/2
+        }px`;
+
+
+      particle.style.setProperty(
+        "--px",
+        `${
+          (Math.random()-.5)*45
+        }px`
+      );
+
+
+      particle.style.setProperty(
+        "--py",
+        `${
+          (Math.random()-.5)*45
+        }px`
+      );
+
+
+      shell.appendChild(
+        particle
+      );
+
+
+      setTimeout(
+        ()=>particle.remove(),
+        350
+      );
+
+    }
+
+  }
+
+
+  // ======================================================
+  // FINISH ACTION
+  // ======================================================
+
+  function finishBlockAction(){
+
+    if(!puzzle){
+      return;
+    }
+
+
+    const orb =
+      document.getElementById(
+        "fpOrbiter"
+      );
+
+
+    if(orb){
+
+      orb.classList.remove(
+        "active"
+      );
+
+      orb.style.transition =
+        "";
+
+    }
+
+
+    puzzle.activeBlock =
+      null;
+
+
+    puzzle.busy =
+      false;
+
+
+    /*
+      全料理消滅
+    */
+
+    const remaining =
+      puzzle.pixels.filter(
+        pixel=>!pixel.eaten
+      );
+
+
+    if(
+      remaining.length === 0
+    ){
+
+      puzzle.over = true;
+
+
+      setTimeout(
+        showComplete,
+        350
+      );
+
+      return;
+
+    }
+
+
+    /*
+      queueがなくなった場合
+      残存ピクセルから補充。
+    */
+
+    if(
+      puzzle.queue.length === 0
+    ){
+
+      createEmergencyBlocks();
+
+    }
+
+
+    drawBlocks();
+
+  }
+
+
+  // ======================================================
+  // EMERGENCY BLOCKS
+  // ======================================================
+
+  function createEmergencyBlocks(){
+
+    const counts = {};
+
+
+    puzzle.pixels
+      .filter(
+        p=>!p.eaten
+      )
+      .forEach(p=>{
+
+        counts[p.symbol] =
+          (
+            counts[p.symbol] ||
+            0
+          ) + 1;
+
+      });
+
+
+    puzzle.queue =
+      Object.entries(counts)
+      .map(
+        ([symbol,count])=>({
+
+          symbol:symbol,
+
+          amount:
+            Math.min(
+              count,
+              12
+            )
+
+        })
+      );
 
   }
 
@@ -2335,10 +3375,7 @@
       );
 
 
-    if(
-      !tray ||
-      !puzzle
-    ){
+    if(!tray){
       return;
     }
 
@@ -2387,17 +3424,8 @@
           "#fff";
 
 
-        slot.style.textShadow =
-          "0 1px 2px #000";
-
-
-        slot.innerHTML = `
-
-          <strong>
-            ${block.amount}
-          </strong>
-
-        `;
+        slot.innerHTML =
+          `<strong>${block.amount}</strong>`;
 
       }
       else{
@@ -2408,9 +3436,7 @@
       }
 
 
-      tray.appendChild(
-        slot
-      );
+      tray.appendChild(slot);
 
     }
 
@@ -2418,343 +3444,27 @@
 
 
   // ======================================================
-  // BLOCKS
+  // ORBIT NUMBER
   // ======================================================
 
-  function drawBlocks(){
+  function updateOrbiterNumber(){
 
-    const container =
+    const orb =
       document.getElementById(
-        "fpBlocks"
+        "fpOrbiter"
       );
 
 
     if(
-      !container ||
-      !puzzle
-    ){
-      return;
-    }
-
-
-    container.innerHTML = "";
-
-
-    /*
-      一度に4つ見せる。
-    */
-
-    puzzle.queue
-      .slice(0,4)
-      .forEach(
-        (block,index)=>{
-
-          const data =
-            puzzle.dish.palette[
-              block.symbol
-            ];
-
-
-          const button =
-            document.createElement(
-              "div"
-            );
-
-
-          button.className =
-            "fp-color-block";
-
-
-          button.style.background =
-            `
-              linear-gradient(
-                180deg,
-                ${data.color},
-                ${data.dark}
-              )
-            `;
-
-
-          button.innerHTML = `
-
-            <div class="fp-color-number">
-              ${block.amount}
-            </div>
-
-            <div class="fp-color-label">
-              ${data.name}
-            </div>
-
-          `;
-
-
-          button.onclick =
-            ()=>useBlock(index);
-
-
-          container.appendChild(
-            button
-          );
-
-        }
-      );
-
-
-    if(
-      puzzle.queue.length === 0
+      orb &&
+      puzzle &&
+      puzzle.activeBlock
     ){
 
-      container.innerHTML =
-        `<div style="
-          color:#776f64;
-          font-size:12px;
-          padding:20px;
-        ">
-          ブロックがありません
-        </div>`;
+      orb.textContent =
+        puzzle.activeBlock.amount;
 
     }
-
-  }
-
-
-  // ======================================================
-  // USE BLOCK
-  // ======================================================
-
-  function useBlock(index){
-
-    if(
-      !puzzle ||
-      puzzle.over
-    ){
-      return;
-    }
-
-
-    const block =
-      puzzle.queue[
-        index
-      ];
-
-
-    if(!block){
-      return;
-    }
-
-
-    /*
-      表示中のqueueから削除
-    */
-
-    puzzle.queue.splice(
-      index,
-      1
-    );
-
-
-    const targets =
-      puzzle.pixels
-        .filter(
-          pixel=>
-            !pixel.eaten &&
-            pixel.symbol ===
-              block.symbol
-        );
-
-
-    const eatCount =
-      Math.min(
-        block.amount,
-        targets.length
-      );
-
-
-    /*
-      ランダムではなく、
-      上側から順番に消す。
-
-      「食べ進めている」感じが出る。
-    */
-
-    targets.sort(
-      (a,b)=>
-        a.y-b.y ||
-        a.x-b.x
-    );
-
-
-    for(
-      let i=0;
-      i<eatCount;
-      i++
-    ){
-
-      targets[i].eaten =
-        true;
-
-    }
-
-
-    const remainder =
-      block.amount -
-      eatCount;
-
-
-    showIngredient(
-      block.symbol
-    );
-
-
-    if(
-      remainder > 0
-    ){
-
-      puzzle.tray.push({
-
-        symbol:
-          block.symbol,
-
-        amount:
-          remainder
-
-      });
-
-
-      setMessage(
-        `${block.amount}個中 ${eatCount}個を食べました。余り ${remainder} がトレーへ。`
-      );
-
-    }
-    else{
-
-      const data =
-        puzzle.dish.palette[
-          block.symbol
-        ];
-
-
-      setMessage(
-        `${data.name}を ${eatCount} ピクセル食べました。`
-      );
-
-    }
-
-
-    drawPixels();
-
-    drawTray();
-
-    drawBlocks();
-
-    updateProgress();
-
-
-    /*
-      クリア判定
-    */
-
-    const remaining =
-      puzzle.pixels.filter(
-        pixel=>!pixel.eaten
-      );
-
-
-    if(
-      remaining.length === 0
-    ){
-
-      puzzle.over = true;
-
-
-      setTimeout(
-        showComplete,
-        450
-      );
-
-
-      return;
-
-    }
-
-
-    /*
-      トレー満杯
-    */
-
-    if(
-      puzzle.tray.length >=
-      SLOT_MAX
-    ){
-
-      puzzle.over = true;
-
-
-      setTimeout(
-        showFail,
-        400
-      );
-
-
-      return;
-
-    }
-
-
-    /*
-      万一queueが尽きた場合
-    */
-
-    if(
-      puzzle.queue.length === 0
-    ){
-
-      createEmergencyBlocks();
-
-      drawBlocks();
-
-    }
-
-  }
-
-
-  // ======================================================
-  // EMERGENCY
-  // ======================================================
-
-  function createEmergencyBlocks(){
-
-    const counts = {};
-
-
-    puzzle.pixels
-      .filter(
-        pixel=>!pixel.eaten
-      )
-      .forEach(
-        pixel=>{
-
-          counts[pixel.symbol] =
-            (
-              counts[pixel.symbol] ||
-              0
-            ) + 1;
-
-        }
-      );
-
-
-    puzzle.queue =
-      Object.entries(counts)
-        .map(
-          ([symbol,count])=>({
-
-            symbol:symbol,
-
-            amount:count
-
-          })
-        );
 
   }
 
@@ -2772,7 +3482,7 @@
 
     const eaten =
       puzzle.pixels.filter(
-        pixel=>pixel.eaten
+        p=>p.eaten
       ).length;
 
 
@@ -2820,13 +3530,6 @@
 
   function showIngredient(symbol){
 
-    if(
-      !puzzle
-    ){
-      return;
-    }
-
-
     const data =
       puzzle.dish.palette[
         symbol
@@ -2840,8 +3543,8 @@
 
 
     if(
-      !popup ||
-      !data
+      !data ||
+      !popup
     ){
       return;
     }
@@ -2867,15 +3570,9 @@
     );
 
 
-    if(
+    clearTimeout(
       puzzle.popupTimer
-    ){
-
-      clearTimeout(
-        puzzle.popupTimer
-      );
-
-    }
+    );
 
 
     puzzle.popupTimer =
@@ -2899,18 +3596,35 @@
 
   function setMessage(text){
 
-    const message =
+    const element =
       document.getElementById(
         "fpMessage"
       );
 
 
-    if(message){
+    if(element){
 
-      message.textContent =
+      element.textContent =
         text;
 
     }
+
+  }
+
+
+  // ======================================================
+  // WAIT
+  // ======================================================
+
+  function wait(ms){
+
+    return new Promise(
+      resolve=>
+        setTimeout(
+          resolve,
+          ms
+        )
+    );
 
   }
 
@@ -2953,12 +3667,12 @@
 
           ${
             isNew
-              ? `
-                <div class="fp-new">
-                  NEW　料理図鑑に登録されました
-                </div>
-              `
-              : ""
+            ? `
+              <div class="fp-new">
+                NEW　料理図鑑に登録されました
+              </div>
+            `
+            : ""
           }
 
           <div class="fp-big-name">
@@ -2975,17 +3689,19 @@
 
           <div class="fp-ingredients">
 
-            ${dish.region}<br><br>
+            ${dish.region}
+
+            <br><br>
 
             主な食材<br>
 
             ${
               dish.ingredients
-                .map(
-                  item=>
-                    `${item.name}（${item.jp}）`
-                )
-                .join("　")
+              .map(
+                item=>
+                  `${item.name}（${item.jp}）`
+              )
+              .join("　")
             }
 
           </div>
@@ -3022,28 +3738,22 @@
     `;
 
 
-    document
-      .getElementById(
-        "fpAgain"
-      )
-      .onclick =
-        ()=>startPuzzle(id);
+    document.getElementById(
+      "fpAgain"
+    ).onclick =
+      ()=>startPuzzle(id);
 
 
-    document
-      .getElementById(
-        "fpCompleteBook"
-      )
-      .onclick =
-        showFoodBook;
+    document.getElementById(
+      "fpCompleteBook"
+    ).onclick =
+      showFoodBook;
 
 
-    document
-      .getElementById(
-        "fpReturn"
-      )
-      .onclick =
-        closeRoot;
+    document.getElementById(
+      "fpReturn"
+    ).onclick =
+      closeRoot;
 
   }
 
@@ -3056,10 +3766,6 @@
 
     const id =
       puzzle.dishId;
-
-
-    const dish =
-      puzzle.dish;
 
 
     root.innerHTML = `
@@ -3082,11 +3788,17 @@
 
           <div class="fp-description">
 
-            トレーがいっぱいになりました。<br>
+            TRAYがいっぱいになりました。
 
-            ブロックの数字と、
-            料理に残っている色の量を見ながら
-            選んでみましょう。
+            <br><br>
+
+            料理の外側に露出している色を
+            よく見てください。
+
+            <br>
+
+            内側に埋まった色を先に選ぶと、
+            ブロックを使い切れません。
 
           </div>
 
@@ -3115,20 +3827,16 @@
     `;
 
 
-    document
-      .getElementById(
-        "fpRetry"
-      )
-      .onclick =
-        ()=>startPuzzle(id);
+    document.getElementById(
+      "fpRetry"
+    ).onclick =
+      ()=>startPuzzle(id);
 
 
-    document
-      .getElementById(
-        "fpFailMenu"
-      )
-      .onclick =
-        showMenu;
+    document.getElementById(
+      "fpFailMenu"
+    ).onclick =
+      showMenu;
 
   }
 
@@ -3140,6 +3848,8 @@
   function showFoodBook(){
 
     openRoot();
+
+    puzzle = null;
 
 
     const cards =
@@ -3191,11 +3901,10 @@
 
                 ${
                   dish.ingredients
-                    .map(
-                      item=>
-                        item.name
-                    )
-                    .join("・")
+                  .map(
+                    item=>item.name
+                  )
+                  .join("・")
                 }
 
               </div>
@@ -3255,18 +3964,16 @@
     `;
 
 
-    document
-      .getElementById(
-        "fpBookBack"
-      )
-      .onclick =
-        showOrderQuestion;
+    document.getElementById(
+      "fpBookBack"
+    ).onclick =
+      showOrderQuestion;
 
   }
 
 
   // ======================================================
-  // KEY CONTROL
+  // KEYBOARD
   // ======================================================
 
   window.addEventListener(
@@ -3275,9 +3982,7 @@
 
     event=>{
 
-      if(
-        !foodUIOpen
-      ){
+      if(!foodUIOpen){
         return;
       }
 
@@ -3288,13 +3993,20 @@
 
 
       if(
-        event.key ===
-        "Escape"
+        event.key === "Escape"
       ){
 
-        if(puzzle){
+        if(
+          puzzle &&
+          puzzle.busy
+        ){
 
-          puzzle = null;
+          return;
+
+        }
+
+
+        if(puzzle){
 
           showMenu();
 
@@ -3317,13 +4029,6 @@
   // ======================================================
   // NOODLE SHOP CONNECTION
   // ======================================================
-
-  /*
-    既存の advanceDialogue を包む。
-
-    面館の老板との通常会話を最後まで読んだ後、
-    注文画面を開く。
-  */
 
   if(
     typeof advanceDialogue ===
@@ -3355,11 +4060,6 @@
             dialogue.npc.dialogue.length-1
         ){
 
-          /*
-            ストーリー進行中には
-            自動で料理ゲームを挟まない。
-          */
-
           if(
             typeof STORY ===
               "undefined" ||
@@ -3367,19 +4067,14 @@
               "story"
           ){
 
-            shouldOpen =
-              true;
+            shouldOpen = true;
 
           }
 
         }
 
       }
-      catch(error){
-
-        // existing game takes priority
-
-      }
+      catch(error){}
 
 
       originalAdvanceDialogue();
@@ -3400,7 +4095,7 @@
 
 
   // ======================================================
-  // WAIT
+  // WAIT FOR DIALOGUE
   // ======================================================
 
   function waitForDialogueEnd(){
@@ -3412,7 +4107,8 @@
     }
 
 
-    let blocked = false;
+    let blocked =
+      false;
 
 
     try{
@@ -3450,11 +4146,7 @@
         );
 
     }
-    catch(error){
-
-      blocked = false;
-
-    }
+    catch(error){}
 
 
     if(blocked){
@@ -3495,7 +4187,7 @@
 
 
   console.log(
-    "杭州探索録 FOOD PIXEL PUZZLE Ver.2.0 loaded"
+    "杭州探索録 FOOD PIXEL PUZZLE Ver.3.0 loaded"
   );
 
 })();
