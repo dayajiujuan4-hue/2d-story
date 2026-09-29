@@ -4045,6 +4045,20 @@ function draw(time){
 
   drawLighting();
 
+
+  // ====================================================
+  // WEATHER
+  // ====================================================
+
+  if(
+    typeof drawWeather===
+    "function"
+  ){
+
+    drawWeather(time);
+
+  }
+
 }
 
 
@@ -4086,7 +4100,22 @@ function gameLoop(now){
 
   updateInteractionHint();
 
-  updateClock(dt);
+    updateClock(dt);
+
+
+  // ====================================================
+  // WEATHER UPDATE
+  // ====================================================
+
+  if(
+    typeof updateWeather===
+    "function"
+  ){
+
+    updateWeather(dt);
+
+  }
+
 
   draw(time);
 
