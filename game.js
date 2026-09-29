@@ -3623,6 +3623,7 @@ function drawPerson(
     : -1;
 
 
+  // shadow
   ctx.fillStyle=
     "rgba(0,0,0,.35)";
 
@@ -3633,6 +3634,7 @@ function drawPerson(
   );
 
 
+  // legs
   ctx.fillStyle="#292630";
 
   ctx.fillRect(
@@ -3648,6 +3650,7 @@ function drawPerson(
   );
 
 
+  // clothes
   ctx.fillStyle=data.color;
 
   ctx.fillRect(
@@ -3657,6 +3660,7 @@ function drawPerson(
   );
 
 
+  // face
   ctx.fillStyle=data.skin;
 
   ctx.fillRect(
@@ -3666,6 +3670,7 @@ function drawPerson(
   );
 
 
+  // hair
   ctx.fillStyle=data.hair;
 
   ctx.fillRect(
@@ -3697,6 +3702,418 @@ function drawPerson(
 
 
 // ======================================================
+// PLAYER CHARACTER
+// 主人公専用描画
+// ======================================================
+
+function drawPlayerCharacter(
+  x,
+  y,
+  moving,
+  time
+){
+
+  const direction=
+    player.direction;
+
+  const walk=
+    moving
+    ? Math.sin(time*11)
+    : 0;
+
+  const step=
+    walk>0
+    ? 1
+    : -1;
+
+  const bob=
+    moving &&
+    Math.sin(time*22)>0
+    ? 1
+    : 0;
+
+
+  // --------------------------------------------------
+  // SHADOW
+  // NPCより少しだけ大きい影
+  // --------------------------------------------------
+
+  ctx.fillStyle=
+    "rgba(0,0,0,.42)";
+
+  ctx.fillRect(
+    x+2,
+    y+24,
+    18,
+    4
+  );
+
+  ctx.fillStyle=
+    "rgba(0,0,0,.20)";
+
+  ctx.fillRect(
+    x+5,
+    y+28,
+    12,
+    2
+  );
+
+
+  // --------------------------------------------------
+  // LEGS
+  // --------------------------------------------------
+
+  ctx.fillStyle="#242735";
+
+  ctx.fillRect(
+    x+5,
+    y+19+step,
+    5,
+    7
+  );
+
+  ctx.fillRect(
+    x+12,
+    y+19-step,
+    5,
+    7
+  );
+
+
+  // shoes
+  ctx.fillStyle="#171a20";
+
+  ctx.fillRect(
+    x+4,
+    y+24+step,
+    6,
+    3
+  );
+
+  ctx.fillRect(
+    x+12,
+    y+24-step,
+    6,
+    3
+  );
+
+
+  // --------------------------------------------------
+  // BODY
+  // 深い藍色のジャケット
+  // --------------------------------------------------
+
+  ctx.fillStyle="#263b55";
+
+  ctx.fillRect(
+    x+3,
+    y+9+bob,
+    16,
+    12
+  );
+
+
+  // ジャケット中央
+  ctx.fillStyle="#17283d";
+
+  ctx.fillRect(
+    x+10,
+    y+10+bob,
+    2,
+    11
+  );
+
+
+  // 襟
+  ctx.fillStyle="#466982";
+
+  ctx.fillRect(
+    x+6,
+    y+9+bob,
+    4,
+    3
+  );
+
+  ctx.fillRect(
+    x+12,
+    y+9+bob,
+    4,
+    3
+  );
+
+
+  // --------------------------------------------------
+  // BAG
+  // 旅行者らしい肩掛けバッグ
+  // --------------------------------------------------
+
+  if(direction==="left"){
+
+    ctx.fillStyle="#8a6138";
+
+    ctx.fillRect(
+      x+15,
+      y+12+bob,
+      5,
+      8
+    );
+
+    ctx.fillStyle="#b68a52";
+
+    ctx.fillRect(
+      x+16,
+      y+13+bob,
+      3,
+      2
+    );
+
+  }
+
+  else if(direction==="right"){
+
+    ctx.fillStyle="#8a6138";
+
+    ctx.fillRect(
+      x+2,
+      y+12+bob,
+      5,
+      8
+    );
+
+    ctx.fillStyle="#b68a52";
+
+    ctx.fillRect(
+      x+3,
+      y+13+bob,
+      3,
+      2
+    );
+
+  }
+
+  else if(direction==="up"){
+
+    // 後ろから見えるバッグ
+    ctx.fillStyle="#795334";
+
+    ctx.fillRect(
+      x+6,
+      y+12+bob,
+      10,
+      8
+    );
+
+    ctx.fillStyle="#a97a45";
+
+    ctx.fillRect(
+      x+8,
+      y+14+bob,
+      6,
+      4
+    );
+
+    ctx.fillStyle="#4b3527";
+
+    ctx.fillRect(
+      x+10,
+      y+15+bob,
+      2,
+      2
+    );
+
+  }
+
+  else{
+
+    // 正面では肩紐だけ見せる
+    ctx.fillStyle="#a87a49";
+
+    ctx.fillRect(
+      x+5,
+      y+10+bob,
+      2,
+      8
+    );
+
+    ctx.fillRect(
+      x+7,
+      y+16+bob,
+      4,
+      2
+    );
+
+  }
+
+
+  // --------------------------------------------------
+  // NECK
+  // --------------------------------------------------
+
+  ctx.fillStyle="#d9a47e";
+
+  ctx.fillRect(
+    x+9,
+    y+8+bob,
+    4,
+    3
+  );
+
+
+  // --------------------------------------------------
+  // FACE
+  // --------------------------------------------------
+
+  ctx.fillStyle="#e1ae87";
+
+  ctx.fillRect(
+    x+5,
+    y+2+bob,
+    12,
+    9
+  );
+
+
+  // --------------------------------------------------
+  // HAIR
+  // NPCよりシルエットを少し複雑にする
+  // --------------------------------------------------
+
+  ctx.fillStyle="#17191f";
+
+  ctx.fillRect(
+    x+4,
+    y+bob,
+    14,
+    5
+  );
+
+  ctx.fillRect(
+    x+5,
+    y-1+bob,
+    9,
+    2
+  );
+
+  ctx.fillRect(
+    x+3,
+    y+2+bob,
+    3,
+    5
+  );
+
+  ctx.fillRect(
+    x+16,
+    y+2+bob,
+    3,
+    4
+  );
+
+
+  // 前髪
+  if(direction!=="up"){
+
+    ctx.fillRect(
+      x+6,
+      y+3+bob,
+      3,
+      3
+    );
+
+    ctx.fillRect(
+      x+13,
+      y+3+bob,
+      3,
+      2
+    );
+
+  }
+
+
+  // --------------------------------------------------
+  // FACE DIRECTION
+  // --------------------------------------------------
+
+  ctx.fillStyle="#292126";
+
+
+  if(direction==="down"){
+
+    // eyes
+    ctx.fillRect(
+      x+8,
+      y+6+bob,
+      2,
+      2
+    );
+
+    ctx.fillRect(
+      x+14,
+      y+6+bob,
+      2,
+      2
+    );
+
+
+    // 鼻/口の小さな陰影
+    ctx.fillStyle="#bd795f";
+
+    ctx.fillRect(
+      x+11,
+      y+9+bob,
+      2,
+      1
+    );
+
+  }
+
+
+  else if(direction==="left"){
+
+    ctx.fillStyle="#292126";
+
+    ctx.fillRect(
+      x+6,
+      y+6+bob,
+      2,
+      2
+    );
+
+  }
+
+
+  else if(direction==="right"){
+
+    ctx.fillStyle="#292126";
+
+    ctx.fillRect(
+      x+14,
+      y+6+bob,
+      2,
+      2
+    );
+
+  }
+
+
+  // --------------------------------------------------
+  // SMALL HIGHLIGHT
+  // 夜市の光を受けた輪郭
+  // --------------------------------------------------
+
+  ctx.fillStyle=
+    "rgba(240,199,116,.45)";
+
+  ctx.fillRect(
+    x+3,
+    y+10+bob,
+    1,
+    8
+  );
+
+}
+
+
+// ======================================================
 // ENTITIES
 // ======================================================
 
@@ -3705,6 +4122,7 @@ function drawEntities(time){
   const entities=[];
 
 
+  // NPC
   for(const npc of getCurrentNPCs()){
 
     entities.push({
@@ -3742,13 +4160,14 @@ function drawEntities(time){
   }
 
 
+  // PLAYER
   entities.push({
 
     y:player.y,
 
     draw:()=>{
 
-      drawPerson(
+      drawPlayerCharacter(
 
         Math.floor(
           player.x-camera.x
@@ -3757,13 +4176,6 @@ function drawEntities(time){
         Math.floor(
           player.y-camera.y
         ),
-
-        {
-          color:"#355f7d",
-          hair:"#211b20",
-          skin:"#e1ae87",
-          direction:player.direction
-        },
 
         player.moving,
 
@@ -3776,17 +4188,19 @@ function drawEntities(time){
   });
 
 
+  // 奥にいるキャラクターから描画
   entities.sort(
     (a,b)=>a.y-b.y
   );
 
 
   for(const entity of entities){
+
     entity.draw();
+
   }
 
 }
-
 
 // ======================================================
 // LIGHT
